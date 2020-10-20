@@ -14,6 +14,7 @@ num_classes = 10
 train_batch_size = 32
 test_batch_size = 4
 learning_rate = 1e-3
+num_epochs = 1
 
 # normalize all pixel values to be in [-1, 1] and add Gaussian noise with mean zero, variance gaussian_noise_var
 transform = transforms.Compose(
@@ -23,7 +24,6 @@ transform = transforms.Compose(
 )
 
 # obtain data
-
 trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
                                         download=True, transform=transform)
 
@@ -51,6 +51,8 @@ optimizer = optim.Adam(model.parameters(), lr=learning_rate, betas=[.9, .999])
 truncated_training_set = list(enumerate(trainloader, 0))[:2]
 
 print("starting training ...")
+
+"""
 #create a toy training loop
 for i, data in truncated_training_set:
 
@@ -66,5 +68,23 @@ for i, data in truncated_training_set:
     print(loss.item())
     loss.backward()
     optimizer.step()
+"""
 
 #create a real training loop
+for epoch in range(num_epochs):
+    for i, data in enumerate(trainloader, 0):
+
+        #obtain data
+        inputs, labels = data
+
+        #zero gradients
+        optimizer.zero_grad()
+
+        #forward, backward, loss
+        logits = model(inputs)
+        loss = criterion(logits, labels)
+        loss.backward()
+        optimizer.step()
+
+        if i % 10 == 0:
+            print("loss: {}".format(loss))
