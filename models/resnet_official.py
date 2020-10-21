@@ -154,16 +154,16 @@ class ResNet(nn.Module):
     def forward(self, x):
         return self._forward_impl(x)
 
-    def _resnet(block, layers, pretrained, progress, **kwargs):
+    def _resnet(block, layers, **kwargs):
         model = ResNet(block, layers, **kwargs)
 
 
         return model
 
-    def wide_resnet26_2(pretrained=False, progress=True, **kwargs):
+    def wide_resnet26_2(**kwargs):
         """
             wide resnet with basic block, 4 sets of 3 wide blocks with a conv block in the beginning and avg pool at the end
         """
         kwargs['width_per_group'] = 16 * 2
-        return _resnet('wide_resnet50_2', BasicBlock, [1, 4, 4, 4],
+        return _resnet(BasicBlock, [1, 4, 4, 4],
                        pretrained, progress, **kwargs)
