@@ -3,6 +3,8 @@ import torch.optim as optim
 import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
+from tqdm import tqdm
+
 from models import wide_resnet
 
 # hyperparameters (eventually will be made user passable with argparse):
@@ -37,7 +39,7 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
                                          shuffle=False, num_workers=2)
 
 # for debugging purposes, define a truncated training set
-toy_train_set = list(enumerate(trainloader, 0))[:2]
+#toy_train_set = list(enumerate(trainloader, 0))[:2]
 
 # define the model
 model = wide_resnet.Wide_ResNet(depth=depth, widen_factor=widen_factor, dropout_rate=dropout_rate, num_classes=num_classes)
@@ -48,7 +50,7 @@ optimizer = optim.Adam(model.parameters(), lr=learning_rate, betas=[.9, .999])
 
 
 # define a truncated training set just to make sure everything works as expected
-truncated_training_set = list(enumerate(trainloader, 0))[:2]
+#truncated_training_set = list(enumerate(trainloader, 0))[:2]
 
 print("starting training ...")
 
@@ -72,7 +74,7 @@ for i, data in truncated_training_set:
 
 #create a real training loop
 for epoch in range(num_epochs):
-    for i, data in enumerate(trainloader, 0):
+    for i, data in tqdm(enumerate(trainloader), total=len(trainset)):
 
         #obtain data
         inputs, labels = data
@@ -87,4 +89,4 @@ for epoch in range(num_epochs):
         optimizer.step()
 
         if i % 10 == 0:
-            print("loss: {}".format(loss))
+            tqdm.write(f"loss: {loss}")
