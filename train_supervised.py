@@ -5,7 +5,7 @@ import torchvision
 import torchvision.transforms as transforms
 from tqdm import tqdm
 
-from models import wide_resnet
+from models import wide_resnet, resnet_official
 
 # hyperparameters (eventually will be made user passable with argparse):
 gaussian_noise_var = 3e-2
@@ -42,7 +42,8 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
 #toy_train_set = list(enumerate(trainloader, 0))[:2]
 
 # define the model
-model = wide_resnet.Wide_ResNet(depth=depth, widen_factor=widen_factor, dropout_rate=dropout_rate, num_classes=num_classes)
+# model = wide_resnet.Wide_ResNet(depth=depth, widen_factor=widen_factor, dropout_rate=dropout_rate, num_classes=num_classes)
+model = resnet_official.wrn_28_2()
 
 #define the optimizer and criterion
 criterion = nn.CrossEntropyLoss()
