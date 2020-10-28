@@ -14,7 +14,7 @@ widen_factor = 2
 dropout_rate = 0.0
 num_classes = 10
 train_batch_size = 32
-test_batch_size = 4
+test_batch_size = 32
 learning_rate = 1e-3
 num_epochs = 1
 
@@ -42,7 +42,7 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
 #toy_train_set = list(enumerate(trainloader, 0))[:2]
 
 # define the model
-# model = wide_resnet.Wide_ResNet(depth=depth, widen_factor=widen_factor, dropout_rate=dropout_rate, num_classes=num_classes)
+#model = wide_resnet.Wide_ResNet(depth=depth, widen_factor=widen_factor, dropout_rate=dropout_rate, num_classes=num_classes)
 model = resnet_official.wrn_28_2()
 
 #define the optimizer and criterion
@@ -55,27 +55,10 @@ optimizer = optim.Adam(model.parameters(), lr=learning_rate, betas=[.9, .999])
 
 print("starting training ...")
 
-"""
-#create a toy training loop
-for i, data in truncated_training_set:
-
-    #get the net inputs and labels
-    inputs, labels = data
-
-    #zero the parameter gradients
-    optimizer.zero_grad()
-
-    #forward, backward, loss
-    logits = model(inputs)
-    loss = criterion(logits, labels)
-    print(loss.item())
-    loss.backward()
-    optimizer.step()
-"""
-
 #create a real training loop
 for epoch in range(num_epochs):
     for i, data in tqdm(enumerate(trainloader), total=len(trainset)):
+
 
         #obtain data
         inputs, labels = data
@@ -89,5 +72,20 @@ for epoch in range(num_epochs):
         loss.backward()
         optimizer.step()
 
-        if i % 10 == 0:
+        if i % 5 == 0:
             tqdm.write(f"loss: {loss}")
+        if i % 10 == 0:
+            total = 0
+            correct = 0
+            model.eval()
+            with torch.no_grad():
+                #check accuracy on validation set
+                for data in testloader:
+                    images, labels = data
+                    logits = model(images)
+                    _, predicted = torch.max(logits.data, 1)
+                    total += labels.size(0)
+                    correct += (predicted == labels).sum().item()
+
+            tqdm.write(f"Accuracy of the network on 10000 test images: {correct}/{total}")
+            model.train()
