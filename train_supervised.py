@@ -68,7 +68,7 @@ experiment = replicate.init(
 
 #create a real training loop
 for epoch in range(num_epochs):
-    for i, data in tqdm(enumerate(trainloader), total=len(trainset)):
+    for i, data in tqdm(enumerate(trainloader), total=len(trainset) // train_batch_size + 1):
 
         #obtain data
         inputs, labels = data[0].to(device), data[1].to(device)
@@ -85,11 +85,12 @@ for epoch in range(num_epochs):
         if i % 5 == 0:
             tqdm.write(f"loss: {loss.item()}")
 
+
     if epoch % eval_every == 0:
         #if i % 10 == 0:
             #total = 0
-            corrects = []
-            losses = []
+        corrects = []
+        losses = []
         with torch.no_grad():
             model.eval()
             #check accuracy on validation set
