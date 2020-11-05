@@ -7,3 +7,6 @@ dependencies:
   - pytorch=1.6.0
   - torchvision=0.7.0=py37_cpu
   - tqdm=4.47.0
+  - pip
+  - pip:
+      - replicate
