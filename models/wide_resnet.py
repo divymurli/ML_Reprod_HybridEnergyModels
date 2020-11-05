@@ -1,14 +1,14 @@
-import torch
-import torch.nn as nn
-import torch.nn.init as init
-import torch.nn.functional as F
-
 import numpy as np
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.nn.init as init
 
-#Wide ResNet implementation taken from https://github.com/meliketoy/wide-resnet.pytorch/blob/master/networks/wide_resnet.py
+
+# Wide ResNet implementation taken from https://github.com/meliketoy/wide-resnet.pytorch/blob/master/networks/wide_resnet.py
 
 def conv3x3(in_planes, out_planes, stride=1):
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=True)
+
 
 def conv_init(m):
     classname = m.__class__.__name__
@@ -18,6 +18,7 @@ def conv_init(m):
     elif classname.find('BatchNorm') != -1:
         init.constant_(m.weight, 1)
         init.constant_(m.bias, 0)
+
 
 class wide_basic(nn.Module):
     def __init__(self, in_planes, planes, dropout_rate, stride=1):
@@ -39,17 +40,18 @@ class wide_basic(nn.Module):
 
         return out
 
-class Wide_ResNet(nn.Module):
+
+class WideResNet(nn.Module):
     def __init__(self, depth, widen_factor, dropout_rate, num_classes):
-        super(Wide_ResNet, self).__init__()
+        super(WideResNet, self).__init__()
         self.in_planes = 16
 
-        assert ((depth-4)%6 ==0), 'Wide-resnet depth should be 6n+4'
-        n = (depth-4)/6
+        assert ((depth - 4) % 6 == 0), 'Wide-resnet depth should be 6n+4'
+        n = (depth - 4) / 6
         k = widen_factor
 
-        print('| Wide-Resnet %dx%d' %(depth, k))
-        nStages = [16, 16*k, 32*k, 64*k]
+        print('| Wide-Resnet %dx%d' % (depth, k))
+        nStages = [16, 16 * k, 32 * k, 64 * k]
 
         self.conv1 = conv3x3(3, nStages[0])
         self.layer1 = self._wide_layer(wide_basic, nStages[1], n, dropout_rate, stride=1)
@@ -59,7 +61,7 @@ class Wide_ResNet(nn.Module):
         self.linear = nn.Linear(nStages[3], num_classes)
 
     def _wide_layer(self, block, planes, num_blocks, dropout_rate, stride):
-        strides = [stride] + [1]*(int(num_blocks)-1)
+        strides = [stride] + [1] * (int(num_blocks) - 1)
         layers = []
 
         for stride in strides:
