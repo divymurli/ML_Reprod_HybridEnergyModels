@@ -26,13 +26,15 @@ train_batch_size = params["train_batch_size"]
 test_batch_size = params["test_batch_size"]
 learning_rate = params["learning_rate"]
 num_epochs = params["num_epochs"]
+decay_epochs = params["decay_epochs"]
+decay_rate = params["decay_rate"]
 eval_every = params["eval_every"]
 
 # normalize all pixel values to be in [-1, 1] and add Gaussian noise with mean zero, variance gaussian_noise_var
 transform = transforms.Compose(
     [transforms.ToTensor(),
-     # [0.4914, 0.4822, 0.4465], [0.2488, 0.2453, 0.2633]
-     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+     # normalize by the mean, stdev of the dataset
+     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2488, 0.2453, 0.2633)),
      lambda x: x + gaussian_noise_var * torch.randn_like(x)]
 )
 
@@ -67,6 +69,9 @@ experiment = replicate.init(
     params={"learning_rate": params["learning_rate"], "num_epochs": params["num_epochs"]},
 )
 
+# set a learning rate schedule
+scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=decay_epochs, gamma=decay_rate)
+
 # create a real training loop
 for epoch in range(num_epochs):
     for i, (inputs, labels) in tqdm(enumerate(trainloader), total=len(trainset) // train_batch_size + 1):
@@ -87,8 +92,7 @@ for epoch in range(num_epochs):
             tqdm.write(f"loss: {loss.item()}")
 
     if epoch % eval_every == 0:
-        # if i % 10 == 0:
-        # total = 0
+
         corrects = []
         losses = []
         with torch.no_grad():
@@ -116,3 +120,5 @@ for epoch in range(num_epochs):
             )
 
             model.train()
+
+    scheduler.step()

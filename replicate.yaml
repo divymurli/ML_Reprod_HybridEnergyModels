@@ -1,1 +1,1 @@
-repository: "s3://wide-resnet-experiments"
+repository: "file://.replicate"
