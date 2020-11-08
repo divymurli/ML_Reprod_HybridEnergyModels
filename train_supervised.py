@@ -18,6 +18,7 @@ with open(p, 'r') as f:
     params = json.load(f)
 
 gaussian_noise_var = params["gaussian_noise_var"]
+model_type = params["model"]
 depth = params["depth"]
 widen_factor = params["widen_factor"]
 dropout_rate = params["dropout_rate"]
@@ -55,9 +56,12 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # define the model
-# model = wide_resnet.Wide_ResNet(depth=depth, widen_factor=widen_factor, dropout_rate=dropout_rate, num_classes=num_classes)
-model = resnet_official.wrn_28_2().to(device)
-
+#
+if model_type == "resnet_official":
+    model = resnet_official.wrn_28_2().to(device)
+else:
+    model = wide_resnet.WideResNet(depth=depth, widen_factor=widen_factor, dropout_rate=dropout_rate,
+                                    num_classes=num_classes).to(device)
 # define the optimizer and criterion
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate, betas=(.9, .999))
