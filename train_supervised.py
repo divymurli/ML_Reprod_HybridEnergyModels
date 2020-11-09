@@ -9,6 +9,7 @@ import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
 from tqdm import tqdm
+from torch.utils.tensorboard import SummaryWriter
 
 from models import wide_resnet, resnet_official
 
@@ -66,6 +67,9 @@ else:
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate, betas=(.9, .999))
 
+# setup the summary writer
+writer = SummaryWriter(f'runs/wideresnet/')
+
 print("starting training ...")
 
 experiment = replicate.init(
@@ -76,6 +80,8 @@ experiment = replicate.init(
 # set a learning rate schedule
 scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=decay_epochs, gamma=decay_rate)
 
+train_step = 0
+val_step = 0
 # create a real training loop
 for epoch in range(num_epochs):
     for i, (inputs, labels) in tqdm(enumerate(trainloader), total=len(trainset) // train_batch_size + 1):
@@ -94,6 +100,8 @@ for epoch in range(num_epochs):
 
         if i % 5 == 0:
             tqdm.write(f"loss: {loss.item()}")
+            writer.add_scalar("Loss/train", loss, global_step=train_step)
+            train_step +=1
 
     if epoch % eval_every == 0:
 
@@ -113,6 +121,11 @@ for epoch in range(num_epochs):
             loss = np.mean(losses)
             acc = np.mean(corrects)
             tqdm.write(f"Epoch {epoch} validation accuracy: {acc}, Epoch validation loss: {loss}")
+            writer.add_scalar("Loss/val", loss, global_step=val_step)
+            writer.add_scalar("Loss/acc", acc, global_step=val_step)
+            writer.add_hparams({"Hyperparams/lr": scheduler.get_last_lr()[0]},
+                               {"Metrics/val_accuracy": acc, "Metrics/val_loss": loss})
+            val_step+=1
 
             # save and log a checkpoint
             torch.save(model, "model.pth")
