@@ -7,7 +7,7 @@
 	"num_classes": 10,
 	"train_batch_size": 64,
 	"test_batch_size": 100,
-	"learning_rate": 1e-3,
+	"learning_rate": 1e-4,
 	"num_epochs": 150,
 	"decay_epochs": [50, 100],
 	"decay_rate": 0.3,
