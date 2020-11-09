@@ -4,3 +4,5 @@ venv
 models/__pycache__
 .replicate
 model.pth
+.DS_Store
+runs
