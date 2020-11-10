@@ -74,7 +74,7 @@ print("starting training ...")
 
 experiment = replicate.init(
     path=".",
-    params={"learning_rate": params["learning_rate"], "num_epochs": params["num_epochs"]},
+    params=params,
 )
 
 # set a learning rate schedule
