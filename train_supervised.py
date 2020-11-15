@@ -31,21 +31,33 @@ num_epochs = params["num_epochs"]
 decay_epochs = params["decay_epochs"]
 decay_rate = params["decay_rate"]
 eval_every = params["eval_every"]
+im_size = 32
+n_channels = 3
 
 # normalize all pixel values to be in [-1, 1] and add Gaussian noise with mean zero, variance gaussian_noise_var
-transform = transforms.Compose(
-    [transforms.ToTensor(),
-     # normalize by the mean, stdev of the dataset
-     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2488, 0.2453, 0.2633)),
-     lambda x: x + gaussian_noise_var * torch.randn_like(x)]
+# using the same train/test data augmentation as in the paper's code
+transform_train = transforms.Compose(
+            [transforms.Pad(4, padding_mode="reflect"),
+             transforms.RandomCrop(im_size),
+             transforms.RandomHorizontalFlip(),
+             transforms.ToTensor(),
+             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2488, 0.2453, 0.2633)),
+             lambda x: x + gaussian_noise_var * torch.randn_like(x)]
+)
+
+transform_test = transforms.Compose(
+            [transforms.ToTensor(),
+             # normalize by the mean, stdev of the training set
+             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2488, 0.2453, 0.2633)),
+             lambda x: x + gaussian_noise_var * torch.randn_like(x)]
 )
 
 # obtain data
 trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
-                                        download=True, transform=transform)
+                                        download=True, transform=transform_train)
 
 testset = torchvision.datasets.CIFAR10(root='./data', train=False,
-                                       download=True, transform=transform)
+                                       download=True, transform=transform_test)
 
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=train_batch_size,
                                           shuffle=True, num_workers=2)
@@ -121,10 +133,10 @@ for epoch in range(num_epochs):
             loss = np.mean(losses)
             acc = np.mean(corrects)
             tqdm.write(f"Epoch {epoch} validation accuracy: {acc}, Epoch validation loss: {loss}")
+            writer.add_scalar("LR/lr", scheduler.get_last_lr()[0], global_step=val_step)
             writer.add_scalar("Loss/val", loss, global_step=val_step)
             writer.add_scalar("Loss/acc", acc, global_step=val_step)
-            writer.add_hparams({"Hyperparams/lr": scheduler.get_last_lr()[0]},
-                               {"Metrics/val_accuracy": acc, "Metrics/val_loss": loss})
+
             val_step+=1
 
             # save and log a checkpoint

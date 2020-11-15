@@ -8,8 +8,8 @@
 	"train_batch_size": 64,
 	"test_batch_size": 100,
 	"learning_rate": 1e-4,
-	"num_epochs": 150,
-	"decay_epochs": [50, 100],
+	"num_epochs": 200,
+	"decay_epochs": [160, 180],
 	"decay_rate": 0.3,
 	"eval_every": 1 
 }
