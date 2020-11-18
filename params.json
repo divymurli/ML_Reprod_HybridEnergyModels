@@ -2,7 +2,7 @@
 	"gaussian_noise_var": 3e-2,
 	"model": "wide_resnet",
 	"depth": 28,
-	"widen_factor": 10,
+	"widen_factor": 2,
 	"dropout_rate": 0.0,
 	"num_classes": 10,
 	"train_batch_size": 64,
@@ -11,5 +11,12 @@
 	"num_epochs": 200,
 	"decay_epochs": [160, 180],
 	"decay_rate": 0.3,
-	"eval_every": 1 
+	"eval_every": 1,
+	"reinit_freq": 0.05,
+	"sgld_step_size": 1.0,
+	"sgld_noise": 0.01,
+	"discriminative_weight": 1.0,
+	"generative_weight": 1.0,
+	"sgld_steps": 20,
+	"buffer_size": 10000
 }
