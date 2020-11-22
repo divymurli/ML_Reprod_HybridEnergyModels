@@ -14,6 +14,9 @@ from torch.utils.tensorboard import SummaryWriter
 
 from models import wide_resnet_energy_output
 
+# XLA SPECIFIC
+import torch_xla.core.xla_model as xm
+
 dir_path = os.path.dirname(os.path.realpath(__file__))
 p = os.path.join(dir_path, 'params.json')
 with open(p, 'r') as f:
@@ -80,9 +83,9 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
 
 ### GPU ###
 # define the device
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-
+#device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+# XLA SPECIFIC
+device = xm.xla_device()
 
 ### REPLAY BUFFER ###
 def create_random_buffer(size):
@@ -107,15 +110,16 @@ def sample_buffer(buffer, batch_size, device):
 # run sgld
 def run_sgld(model, buffer, batch_size, device):
 
-    init_samples, sample_indices = sample_buffer(buffer, batch_size, device)
-
-    x_k = Variable(init_samples, requires_grad=True)
+    x_k, sample_indices = sample_buffer(buffer, batch_size, device)
+    #x_k = Variable(init_samples, requires_grad=True)
 
     model.eval()
     for step in range(sgld_steps):
         print(f"step: {step}")
-        d_model_dx = torch.autograd.grad(model(x_k).sum(), x_k, retain_graph=True)[0]
-        x_k.data += sgld_step_size * d_model_dx + sgld_noise * torch.randn_like(x_k)
+        x_k.requires_grad = True
+        d_model_dx = torch.autograd.grad(model(x_k).sum(), x_k, retain_graph=True)[0] # TODO: remove retain graph=TRUE
+        x_k = x_k.detach()
+        x_k += sgld_step_size * d_model_dx + sgld_noise * torch.randn_like(x_k)
     model.train()
 
     sgld_samples = x_k.detach()
@@ -144,15 +148,77 @@ class WRN_Energy(nn.Module):
 
         return energy
 
-#define model and buffer
-model = WRN_Energy(28, 10, 0.0, 10)
+# define model and buffer
+model = WRN_Energy(28, 10, 0.0, 10).to(device)
 buffer = create_random_buffer(buffer_size)
+
+# define the optimizer and criterion
+supervised_criterion = nn.CrossEntropyLoss()
+optimizer = optim.Adam(model.parameters(), lr=learning_rate, betas=(.9, .999))
+
+### TRAINING (Appendix A, Method 2, Algorithm 1)###
+for epoch in range(num_epochs):
+    # Line 1: Sample (x, y)
+    for i, (inputs, labels) in tqdm(enumerate(trainloader), total=len(trainset) // train_batch_size + 1):
+
+        # obtain data
+        inputs, labels = inputs.to(device), labels.to(device)
+
+        loss = 0.
+
+        if discriminative_weight > 0:
+            # Line 2: xent(model(x), y)
+            logits = model.classify(inputs)
+            discriminative_loss = supervised_criterion(logits, labels)
+            loss += discriminative_weight*discriminative_loss
+
+        if generative_weight > 0:
+            # Lines 4-7: Sample from buffer, run SGLD
+            sgld_samples = run_sgld(model, buffer, train_batch_size, device)
+
+            # Lines 8-9: add generative loss (I believe in the paper the signs on the two terms should be flipped)
+            generative_loss = model(sgld_samples).mean() - model(inputs).mean()
+            loss += generative_weight*generative_loss
+
+        # Line 10: back prop
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        # XLA SPECIFIC
+        xm.mark_step()
+
+        # Line 11: add to buffer, done in run_sgld function
+    if epoch % eval_every == 0:
+
+        corrects = []
+        losses = []
+        with torch.no_grad():
+            model.eval()
+            # check accuracy on validation set
+            for test_inputs, test_labels in testloader:
+                test_inputs, test_labels = test_inputs.to(device), test_labels.to(device)
+                logits = model.classify(test_inputs)
+                loss = nn.CrossEntropyLoss(reduction='none')(logits, test_labels).cpu().numpy()
+                losses.extend(loss)
+                _, predicted = torch.max(logits.data, 1)
+                correct = (predicted == test_labels).float().cpu().numpy()
+                corrects.extend(correct)
+            loss = np.mean(losses)
+            acc = np.mean(corrects)
+
+
+
+
+"""
+
 
 #debugging
 print(buffer.shape)
 
 init_samples, sample_indices = sample_buffer(buffer, train_batch_size, buffer)
 sgld_samples = run_sgld(model, buffer, train_batch_size, device)
+"""
+
 
 
 
