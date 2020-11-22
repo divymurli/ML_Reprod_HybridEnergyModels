@@ -2,7 +2,7 @@
 	"gaussian_noise_var": 3e-2,
 	"model": "wide_resnet",
 	"depth": 28,
-	"widen_factor": 2,
+	"widen_factor": 10,
 	"dropout_rate": 0.0,
 	"num_classes": 10,
 	"train_batch_size": 64,
