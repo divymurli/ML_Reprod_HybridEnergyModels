@@ -13,6 +13,9 @@ from torch.utils.tensorboard import SummaryWriter
 
 from models import wide_resnet, resnet_official
 
+# XLA SPECIFIC
+import torch_xla.core.xla_model as xm
+
 dir_path = os.path.dirname(os.path.realpath(__file__))
 p = os.path.join(dir_path, 'params.json')
 with open(p, 'r') as f:
@@ -66,7 +69,9 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
                                          shuffle=False, num_workers=2)
 
 # define the device
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+#device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+# XLA SPECIFIC
+device = xm.xla_device()
 
 # define the model
 #
@@ -109,6 +114,8 @@ for epoch in range(num_epochs):
         loss = criterion(logits, labels)
         loss.backward()
         optimizer.step()
+        # XLA SPECIFIC
+        xm.mark_step()
 
         if i % 5 == 0:
             tqdm.write(f"loss: {loss.item()}")
