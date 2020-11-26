@@ -2,14 +2,14 @@
 	"gaussian_noise_var": 3e-2,
 	"model": "wide_resnet",
 	"depth": 28,
-	"widen_factor": 10,
+	"widen_factor": 2,
 	"dropout_rate": 0.0,
 	"num_classes": 10,
 	"train_batch_size": 64,
 	"test_batch_size": 100,
 	"learning_rate": 1e-4,
-	"num_epochs": 200,
-	"decay_epochs": [160, 180],
+	"num_epochs": 150,
+	"decay_epochs": [50, 100],
 	"decay_rate": 0.3,
 	"eval_every": 1,
 	"reinit_freq": 0.05,
@@ -18,5 +18,8 @@
 	"discriminative_weight": 1.0,
 	"generative_weight": 1.0,
 	"sgld_steps": 20,
-	"buffer_size": 10000
+	"buffer_size": 10000,
+	"use_tpu": "True",
+	"save_every": 5,
+	"save_path_prefix": "./artefacts/model"
 }
