@@ -13,8 +13,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from models import wide_resnet, resnet_official
 
-# XLA SPECIFIC
-import torch_xla.core.xla_model as xm
+
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 p = os.path.join(dir_path, 'params.json')
@@ -34,6 +33,14 @@ num_epochs = params["num_epochs"]
 decay_epochs = params["decay_epochs"]
 decay_rate = params["decay_rate"]
 eval_every = params["eval_every"]
+use_tpu = params["use_tpu"]
+save_every = params["save_every"]
+save_path_prefix = params["save_path_prefix"]
+
+if use_tpu != "False":
+    # XLA SPECIFIC
+    import torch_xla.core.xla_model as xm
+
 im_size = 32
 n_channels = 3
 
@@ -69,17 +76,28 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
                                          shuffle=False, num_workers=2)
 
 # define the device
-#device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-# XLA SPECIFIC
-device = xm.xla_device()
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+if use_tpu != "False":
+    # XLA SPECIFIC
+    device = xm.xla_device()
 
+print(f"device: {device}")
 # define the model
-#
+
 if model_type == "resnet_official":
     model = resnet_official.wrn_28_2().to(device)
 else:
     model = wide_resnet.WideResNet(depth=depth, widen_factor=widen_factor, dropout_rate=dropout_rate,
                                     num_classes=num_classes).to(device)
+
+#define checkpointing
+def save_checkpoint(save_dir, epoch):
+    print(f"saving model checkpoint at epoch {epoch} ...")
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    torch.save(model.state_dict(), f"{save_path_prefix}_{epoch}_epochs.pt")
+    print("checkpoint saved!")
+
 # define the optimizer and criterion
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate, betas=(.9, .999))
@@ -114,13 +132,17 @@ for epoch in range(num_epochs):
         loss = criterion(logits, labels)
         loss.backward()
         optimizer.step()
-        # XLA SPECIFIC
-        xm.mark_step()
+        if use_tpu != "False":
+            # XLA SPECIFIC
+            xm.mark_step()
 
         if i % 5 == 0:
             tqdm.write(f"loss: {loss.item()}")
             writer.add_scalar("Loss/train", loss, global_step=train_step)
             train_step +=1
+
+    if epoch % save_every == 0:
+        save_checkpoint(save_path_prefix, epoch)
 
     if epoch % eval_every == 0:
 
