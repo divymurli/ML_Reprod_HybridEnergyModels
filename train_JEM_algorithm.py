@@ -14,9 +14,6 @@ from torch.utils.tensorboard import SummaryWriter
 
 from models import wide_resnet_energy_output
 
-# XLA SPECIFIC
-import torch_xla.core.xla_model as xm
-
 dir_path = os.path.dirname(os.path.realpath(__file__))
 p = os.path.join(dir_path, 'params.json')
 with open(p, 'r') as f:
@@ -43,6 +40,16 @@ discriminative_weight = params["discriminative_weight"]
 generative_weight = params["generative_weight"]
 sgld_steps = params["sgld_steps"]
 buffer_size=params["buffer_size"]
+use_tpu = params["use_tpu"]
+save_every = params["save_every"]
+save_model_prefix = params["save_path_prefix"]
+save_buffer_prefix = params["save_buffer_path_prefix"]
+image_prefix = params["image_prefix"]
+print_every = params["print_every"]
+
+if use_tpu != "False":
+    # XLA SPECIFIC
+    import torch_xla.core.xla_model as xm
 
 ### IMAGE CHARACTERISTICS ###
 # define image parameters
@@ -81,15 +88,19 @@ trainloader = torch.utils.data.DataLoader(trainset, batch_size=train_batch_size,
 testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
                                          shuffle=False, num_workers=2)
 
-### GPU ###
+### GPU / TPU ###
 # define the device
-#device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-# XLA SPECIFIC
-device = xm.xla_device()
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+if use_tpu != "False":
+    # XLA SPECIFIC
+    device = xm.xla_device()
+
+print(f"device: {device}")
 
 ### REPLAY BUFFER ###
 def create_random_buffer(size):
-    return torch.FloatTensor(size, n_channels, im_size, im_size).uniform_(-1,1)
+    return torch.FloatTensor(size, n_channels, im_size, im_size).uniform_(-1, 1)
 
 #sample buffer initially
 def sample_buffer(buffer, batch_size, device):
@@ -115,7 +126,6 @@ def run_sgld(model, buffer, batch_size, device):
 
     model.eval()
     for step in range(sgld_steps):
-        print(f"step: {step}")
         x_k.requires_grad = True
         d_model_dx = torch.autograd.grad(model(x_k).sum(), x_k, retain_graph=True)[0] # TODO: remove retain graph=TRUE
         x_k = x_k.detach()
@@ -128,6 +138,15 @@ def run_sgld(model, buffer, batch_size, device):
     buffer[sample_indices] = sgld_samples.cpu()
 
     return sgld_samples
+
+#define checkpointing
+def save_checkpoint(save_dir, epoch):
+    print(f"saving model checkpoint at epoch {epoch} ...")
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    torch.save(model.state_dict(), f"{save_dir}_{epoch}_epochs.pt")
+    print("checkpoint saved!")
+
 
 ### DEFINING MODEL AND INITIALIZING BUFFER ###
 class WRN_Energy(nn.Module):
@@ -149,14 +168,25 @@ class WRN_Energy(nn.Module):
         return energy
 
 # define model and buffer
-model = WRN_Energy(28, 10, 0.0, 10).to(device)
+model = WRN_Energy(depth, widen_factor, 0.0, 10).to(device)
 buffer = create_random_buffer(buffer_size)
+if not os.path.exists(image_prefix):
+    os.makedirs(image_prefix)
 
 # define the optimizer and criterion
 supervised_criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate, betas=(.9, .999))
 
-### TRAINING (Appendix A, Method 2, Algorithm 1)###
+print("starting training ...")
+
+# set a learning rate schedule
+scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=decay_epochs, gamma=decay_rate)
+
+# define image saving functions
+sqrt = lambda x: int(torch.sqrt(torch.Tensor([x])))
+plot = lambda path, x: torchvision.utils.save_image(torch.clamp(x, -1, 1), path, normalize=True, nrow=sqrt(x.size(0)))
+
+### TRAINING (Appendix A, Method 2, Algorithm 1) ###
 for epoch in range(num_epochs):
     # Line 1: Sample (x, y)
     for i, (inputs, labels) in tqdm(enumerate(trainloader), total=len(trainset) // train_batch_size + 1):
@@ -171,6 +201,8 @@ for epoch in range(num_epochs):
             logits = model.classify(inputs)
             discriminative_loss = supervised_criterion(logits, labels)
             loss += discriminative_weight*discriminative_loss
+            if i % print_every == 0:
+                tqdm.write(f"disc_loss: {discriminative_loss} epoch: {epoch} it: {i}")
 
         if generative_weight > 0:
             # Lines 4-7: Sample from buffer, run SGLD
@@ -179,13 +211,28 @@ for epoch in range(num_epochs):
             # Lines 8-9: add generative loss (I believe in the paper the signs on the two terms should be flipped)
             generative_loss = model(sgld_samples).mean() - model(inputs).mean()
             loss += generative_weight*generative_loss
+            if i % print_every == 0:
+                tqdm.write(f"gen_loss: {generative_loss} epoch: {epoch} it: {i}")
+
+        if i % 100 == 0:
+            plot_sgld_samples = run_sgld(model, buffer, train_batch_size, device)
+            plot(os.path.join(image_prefix, f"sgld_{epoch}_{i}.png"), plot_sgld_samples)
+
+        if loss.abs().item() > 1e8:
+            print("Loss diverged! Restart training.")
+            1 / 0
 
         # Line 10: back prop
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        # XLA SPECIFIC
-        xm.mark_step()
+        if use_tpu != "False":
+            # XLA SPECIFIC
+            xm.mark_step()
+
+    if epoch % save_every == 0:
+        save_checkpoint(save_model_prefix, epoch)
+        save_checkpoint(save_buffer_prefix, epoch)
 
         # Line 11: add to buffer, done in run_sgld function
     if epoch % eval_every == 0:
@@ -205,19 +252,11 @@ for epoch in range(num_epochs):
                 corrects.extend(correct)
             loss = np.mean(losses)
             acc = np.mean(corrects)
+            tqdm.write(f"Epoch {epoch} validation accuracy: {acc}, Epoch validation loss: {loss}")
+
+    scheduler.step()
 
 
-
-
-"""
-
-
-#debugging
-print(buffer.shape)
-
-init_samples, sample_indices = sample_buffer(buffer, train_batch_size, buffer)
-sgld_samples = run_sgld(model, buffer, train_batch_size, device)
-"""
 
 
 
