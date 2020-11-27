@@ -19,7 +19,10 @@
 	"generative_weight": 1.0,
 	"sgld_steps": 20,
 	"buffer_size": 10000,
-	"use_tpu": "True",
+	"use_tpu": "False",
 	"save_every": 5,
-	"save_path_prefix": "./artefacts/model"
+	"save_path_prefix": "./artefacts/model",
+	"save_buffer_path_prefix": "./artefacts/buffer",
+	"image_prefix": "./artefacts/images",
+	"print_every": 100
 }
