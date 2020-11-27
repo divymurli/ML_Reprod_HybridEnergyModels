@@ -42,10 +42,13 @@ sgld_steps = params["sgld_steps"]
 buffer_size=params["buffer_size"]
 use_tpu = params["use_tpu"]
 save_every = params["save_every"]
+save_path = params["save_path"]
 save_model_prefix = params["save_path_prefix"]
 save_buffer_prefix = params["save_buffer_path_prefix"]
 image_prefix = params["image_prefix"]
+load_from_checkpoint = params["load_from_checkpoint"]
 print_every = params["print_every"]
+start_epoch = params["start_epoch"]
 
 if use_tpu != "False":
     # XLA SPECIFIC
@@ -139,7 +142,7 @@ def run_sgld(model, buffer, batch_size, device):
 
     return sgld_samples
 
-#define checkpointing
+# define checkpointing and loading
 def save_checkpoint(save_dir, epoch):
     print(f"saving model checkpoint at epoch {epoch} ...")
     if not os.path.exists(save_dir):
@@ -147,6 +150,34 @@ def save_checkpoint(save_dir, epoch):
     torch.save(model.state_dict(), f"{save_dir}_{epoch}_epochs.pt")
     print("checkpoint saved!")
 
+def save_model_and_buffer(save_dir, model, buffer, epoch, last=False):
+    print(f"saving model and buffer checkpoint at epoch {epoch} ...")
+
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    model.cpu() # TODO: this line doesn't seem to work when training with TPU
+    checkpoint_dict = {
+        "model": model.state_dict(),
+        "buffer": buffer
+    }
+
+    if not last:
+        torch.save(checkpoint_dict, f"{save_dir}ckpt_{epoch}_epochs.pt")
+
+    else:
+        torch.save(checkpoint_dict, f"{save_dir}last_ckpt.pt")
+    model.to(device)
+    print("model and buffer saved!")
+
+def load_model_and_buffer(load_dir):
+    print(f"loading model and buffer from {load_dir} ...")
+    model = WRN_Energy(depth, widen_factor, 0.0, 10)
+    checkpoint_dict = torch.load(load_dir)
+    model.load_state_dict(checkpoint_dict["model"])
+    model = model.to(device)
+    buffer = checkpoint_dict["buffer"]
+
+    return model, buffer
 
 ### DEFINING MODEL AND INITIALIZING BUFFER ###
 class WRN_Energy(nn.Module):
@@ -170,6 +201,9 @@ class WRN_Energy(nn.Module):
 # define model and buffer
 model = WRN_Energy(depth, widen_factor, 0.0, 10).to(device)
 buffer = create_random_buffer(buffer_size)
+if load_from_checkpoint != "False":
+    model, buffer = load_model_and_buffer(load_from_checkpoint)
+
 if not os.path.exists(image_prefix):
     os.makedirs(image_prefix)
 
@@ -177,7 +211,15 @@ if not os.path.exists(image_prefix):
 supervised_criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate, betas=(.9, .999))
 
-print("starting training ...")
+print(f"starting training from epoch {start_epoch} ...")
+
+# setup the summary writer
+writer = SummaryWriter(f'runs/JEM/')
+
+experiment = replicate.init(
+    path=".",
+    params=params,
+)
 
 # set a learning rate schedule
 scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=decay_epochs, gamma=decay_rate)
@@ -186,8 +228,13 @@ scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=decay_epochs, g
 sqrt = lambda x: int(torch.sqrt(torch.Tensor([x])))
 plot = lambda path, x: torchvision.utils.save_image(torch.clamp(x, -1, 1), path, normalize=True, nrow=sqrt(x.size(0)))
 
+
+# setup tensorboard loggin steps
+train_step = 0
+val_step = 0
+
 ### TRAINING (Appendix A, Method 2, Algorithm 1) ###
-for epoch in range(num_epochs):
+for epoch in range(start_epoch, num_epochs):
     # Line 1: Sample (x, y)
     for i, (inputs, labels) in tqdm(enumerate(trainloader), total=len(trainset) // train_batch_size + 1):
 
@@ -203,6 +250,8 @@ for epoch in range(num_epochs):
             loss += discriminative_weight*discriminative_loss
             if i % print_every == 0:
                 tqdm.write(f"disc_loss: {discriminative_loss} epoch: {epoch} it: {i}")
+                writer.add_scalar("Loss/train", discriminative_loss, global_step=train_step)
+                train_step += 1
 
         if generative_weight > 0:
             # Lines 4-7: Sample from buffer, run SGLD
@@ -213,6 +262,8 @@ for epoch in range(num_epochs):
             loss += generative_weight*generative_loss
             if i % print_every == 0:
                 tqdm.write(f"gen_loss: {generative_loss} epoch: {epoch} it: {i}")
+                writer.add_scalar("Loss/train_gen", generative_loss, global_step=train_step)
+                train_step += 1
 
         if i % 100 == 0:
             plot_sgld_samples = run_sgld(model, buffer, train_batch_size, device)
@@ -231,8 +282,7 @@ for epoch in range(num_epochs):
             xm.mark_step()
 
     if epoch % save_every == 0:
-        save_checkpoint(save_model_prefix, epoch)
-        save_checkpoint(save_buffer_prefix, epoch)
+        save_model_and_buffer(save_path, model, buffer, epoch, last=False)
 
         # Line 11: add to buffer, done in run_sgld function
     if epoch % eval_every == 0:
@@ -253,6 +303,23 @@ for epoch in range(num_epochs):
             loss = np.mean(losses)
             acc = np.mean(corrects)
             tqdm.write(f"Epoch {epoch} validation accuracy: {acc}, Epoch validation loss: {loss}")
+            save_model_and_buffer(save_path, model, buffer, epoch, last=True)
+
+            writer.add_scalar("LR/lr", scheduler.get_last_lr()[0], global_step=val_step)
+            writer.add_scalar("Loss/val", loss, global_step=val_step)
+            writer.add_scalar("Loss/acc", acc, global_step=val_step)
+
+            val_step += 1
+
+        # save and log a checkpoint for replicate
+            torch.save(model, "model.pth")
+            experiment.checkpoint(
+                path="model.pth",
+                step=epoch,
+                metrics={"accuracy": acc, "loss": loss},
+                primary_metric=("accuracy", "maximize"),
+                )
+            model.train()
 
     scheduler.step()
 
