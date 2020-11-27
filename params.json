@@ -21,8 +21,11 @@
 	"buffer_size": 10000,
 	"use_tpu": "False",
 	"save_every": 5,
+	"save_path": "./artefacts/",
 	"save_path_prefix": "./artefacts/model",
 	"save_buffer_path_prefix": "./artefacts/buffer",
 	"image_prefix": "./artefacts/images",
-	"print_every": 100
+	"load_from_checkpoint": "False",
+	"print_every": 100,
+	"start_epoch": 0
 }
