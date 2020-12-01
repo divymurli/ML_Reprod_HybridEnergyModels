@@ -66,15 +66,25 @@ class WRN_Energy(nn.Module):
 
 #Helper functions
 
-def load_model_and_buffer(load_dir):
-    print(f"loading model and buffer from {load_dir} ...")
-    model = WRN_Energy(depth, widen_factor, 0.0, 10)
-    checkpoint_dict = torch.load(load_dir)
-    model.load_state_dict(checkpoint_dict["model"])
-    model = model.to(device)
-    buffer = checkpoint_dict["buffer"]
+def load_model_and_buffer(load_dir, with_energy=True):
 
-    return model, buffer
+    if with_energy:
+        print(f"loading model and buffer from {load_dir} ...")
+        model = WRN_Energy(depth, widen_factor, 0.0, 10)
+        checkpoint_dict = torch.load(load_dir)
+        model.load_state_dict(checkpoint_dict["model"])
+        model = model.to(device)
+        buffer = checkpoint_dict["buffer"]
+
+        return model, buffer
+    else:
+        print(f"loading model from {load_dir} ...")
+        model = wide_resnet.WideResNet(depth, widen_factor, 0.0, 10)
+        model_dict = torch.load(load_dir)
+        model.load_state_dict(model_dict)
+        model = model.to(device)
+
+        return model
 
 def correct_and_confidence(model, loader, with_energy=True):
     with torch.no_grad():
@@ -122,7 +132,8 @@ def calibration_buckets(zipped_corr_conf):
     return buckets, bucket_accs
 
 
-load_dir = "./artefacts/ckpt_145_epochs.pt"
+#load_dir = "./artefacts/ckpt_145_epochs.pt"
+load_dir = "./artefacts/model_145_epochs.pt"
 
 # Analysis
 
@@ -135,7 +146,16 @@ with open("zipped_corr_conf.npy", "wb") as f:
     np.save(f, zipped_corr_conf)
 """
 
-zipped_corr_conf = np.load("zipped_corr_conf.npy")
+"""
+model = load_model_and_buffer(load_dir, with_energy=False)
+
+zipped_corr_conf = correct_and_confidence(model, testloader, with_energy=False)
+
+with open("zipped_corr_conf_supervised.npy", "wb") as f:
+    np.save(f, zipped_corr_conf)
+"""
+
+zipped_corr_conf = np.load("zipped_corr_conf_supervised.npy")
 buckets, bucket_accs = calibration_buckets(zipped_corr_conf)
 
 
