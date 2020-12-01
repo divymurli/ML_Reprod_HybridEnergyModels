@@ -95,7 +95,9 @@ def save_checkpoint(save_dir, epoch):
     print(f"saving model checkpoint at epoch {epoch} ...")
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
+    model.cpu()  # TODO: this line doesn't seem to work when training with TPU
     torch.save(model.state_dict(), f"{save_path_prefix}_{epoch}_epochs.pt")
+    model.to(device)
     print("checkpoint saved!")
 
 # define the optimizer and criterion
