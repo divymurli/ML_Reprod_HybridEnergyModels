@@ -229,7 +229,7 @@ sqrt = lambda x: int(torch.sqrt(torch.Tensor([x])))
 plot = lambda path, x: torchvision.utils.save_image(torch.clamp(x, -1, 1), path, normalize=True, nrow=sqrt(x.size(0)))
 
 
-# setup tensorboard loggin steps
+# setup tensorboard logging steps
 train_step = 0
 val_step = 0
 
