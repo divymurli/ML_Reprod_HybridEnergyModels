@@ -13,12 +13,25 @@ from scipy.stats import entropy
 # Inception score code adapted from https://github.com/sbarratt/inception-score-pytorch/blob/master/inception_score.py
 
 def obtain_top_k(preds, k):
-
+    """
+    :param preds: array of predictions (shape (N_imgs, N_classes))
+    :param k: top k most confident predictions
+    :return: top_k_predictions (shape (k, N_classes)), top_k_inds (shape (k,))
+    """
     max_preds = np.amax(preds, axis=1)
     top_k_inds = np.argpartition(max_preds, -k)[-k:]
     top_k_preds = preds[top_k_inds]
 
-    return top_k_preds
+    return top_k_preds, top_k_inds
+
+def ensemble_buffer(buffers):
+    """
+    :param buffers: list of buffers
+    :return: ensembled buffer
+    """
+    stacked_buffers = torch.stack(buffers)
+
+    return torch.mean(stacked_buffers, dim=0)
 
 def obtain_inception_predictions(imgs, cuda=True, batch_size=32, resize=False, save_preds=False):
     """Computes the inception model predictions of the generated images imgs
@@ -66,7 +79,7 @@ def obtain_inception_predictions(imgs, cuda=True, batch_size=32, resize=False, s
         preds[i*batch_size:i*batch_size + batch_size_i] = get_pred(batchv)
 
     if save_preds:
-        with open("inception_preds.npy", "wb") as f:
+        with open("inception_preds_ensembled.npy", "wb") as f:
             np.save(f, preds)
 
     return preds
