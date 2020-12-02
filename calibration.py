@@ -115,21 +115,39 @@ def calibration_buckets(zipped_corr_conf):
 
     buckets = [(thresholds[i], thresholds[i+1]) for i in range(len(thresholds) - 1)]
     bucket_accs = []
+    bucket_confs = []
+    bucket_totals = []
 
     for bucket in buckets:
         total = 0
         correct = 0
+        conf = 0
         for i in range(len(confidences)):
             if confidences[i] > bucket[0] and confidences[i] < bucket[1]:
                 total += 1
                 correct += corrects[i]
+                conf += confidences[i]
         if total != 0:
             bucket_acc = correct / total
+            bucket_conf = conf / total
         else:
             bucket_acc = 0.
+            bucket_conf = 0.
         bucket_accs.append(bucket_acc)
+        bucket_confs.append(bucket_conf)
+        bucket_totals.append(total)
 
-    return buckets, bucket_accs
+    return buckets, bucket_accs, bucket_confs, bucket_totals
+
+def expected_calibration_error(data_length, bucket_accs, bucket_confs, bucket_totals):
+
+    normalization = (1/data_length)*np.array(bucket_totals)
+    ece = np.abs(np.array(bucket_accs) - np.array(bucket_confs))
+
+    ece = np.dot(normalization, ece)
+
+    return ece
+
 
 
 #load_dir = "./artefacts/ckpt_145_epochs.pt"
@@ -155,24 +173,46 @@ with open("zipped_corr_conf_supervised.npy", "wb") as f:
     np.save(f, zipped_corr_conf)
 """
 
-zipped_corr_conf = np.load("zipped_corr_conf_supervised.npy")
-buckets, bucket_accs = calibration_buckets(zipped_corr_conf)
+zipped_corr_conf_sup = np.load("zipped_corr_conf_supervised.npy")
+zipped_corr_conf = np.load("zipped_corr_conf.npy")
+buckets, bucket_accs, bucket_confs, bucket_totals = calibration_buckets(zipped_corr_conf_sup)
+buckets, bucket_accs_JEM, bucket_confs_JEM, bucket_totals_JEM = calibration_buckets(zipped_corr_conf)
+ticklabels = [round(i, 2) for i in np.linspace(0, 1, 21)[:-1]]
 
+fig = plt.figure(figsize=(20, 10), facecolor="white")
 
-fig = plt.figure(figsize=(10,10), facecolor="white")
-ax = plt.subplot(111)
+ax = fig.add_subplot(121)
 ax.bar(np.arange(20), height=bucket_accs)
 ax.set_xticks(np.arange(20))
+ax.set_xticklabels(ticklabels)
 x = np.linspace(*ax.get_xlim())
 y = np.linspace(*ax.get_ylim())
 ax.plot(x, y, linestyle='dashed', color='red')
 ax.set_xlabel("bucket")
 ax.set_ylabel("bucket accuracy")
+ax.set_title("Ordinary Supervised")
 
-plt.show()
+ax2 = fig.add_subplot(122)
+ax2.bar(np.arange(20), height=bucket_accs_JEM)
+ax2.set_xticks(np.arange(20))
+ax2.set_xticklabels(ticklabels)
+x = np.linspace(*ax2.get_xlim())
+y = np.linspace(*ax2.get_ylim())
+ax2.plot(x, y, linestyle='dashed', color='red')
+ax2.set_xlabel("bucket")
+ax2.set_ylabel("bucket accuracy")
+ax2.set_title("JEM")
+
+fig.savefig("./artefacts/calibration_plots")
+
+ece_sup = expected_calibration_error(10000, bucket_accs, bucket_confs, bucket_totals)
+ece_JEM = expected_calibration_error(10000, bucket_accs_JEM, bucket_confs_JEM, bucket_totals_JEM)
+print(f"ece_sup: {ece_sup}")
+print(f"ece_JEM: {ece_JEM}")
 
 print(buckets)
 print(bucket_accs)
+print(bucket_confs)
 print(np.linspace(0, 1, 21)[1:])
 
 
