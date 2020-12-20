@@ -8,6 +8,8 @@ import numpy as np
 import os
 import json
 
+plt.rcParams.update({'font.size': 25})
+
 from models import wide_resnet, wide_resnet_energy_output
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -177,31 +179,33 @@ zipped_corr_conf_sup = np.load("zipped_corr_conf_supervised.npy")
 zipped_corr_conf = np.load("zipped_corr_conf.npy")
 buckets, bucket_accs, bucket_confs, bucket_totals = calibration_buckets(zipped_corr_conf_sup)
 buckets, bucket_accs_JEM, bucket_confs_JEM, bucket_totals_JEM = calibration_buckets(zipped_corr_conf)
-ticklabels = [round(i, 2) for i in np.linspace(0, 1, 21)[:-1]]
+ticklabels = [round(i, 1) for i in np.linspace(0, 1, 6)][:-1]
 
 fig = plt.figure(figsize=(20, 10), facecolor="white")
 
 ax = fig.add_subplot(121)
 ax.bar(np.arange(20), height=bucket_accs)
-ax.set_xticks(np.arange(20))
+ax.set_xticks(np.arange(0, 20, 4))
 ax.set_xticklabels(ticklabels)
+ax.set_ylim(0, 1)
 x = np.linspace(*ax.get_xlim())
 y = np.linspace(*ax.get_ylim())
 ax.plot(x, y, linestyle='dashed', color='red')
 ax.set_xlabel("bucket")
 ax.set_ylabel("bucket accuracy")
-ax.set_title("Ordinary Supervised")
+ax.set_title("Ordinary Supervised", pad=20)
 
 ax2 = fig.add_subplot(122)
 ax2.bar(np.arange(20), height=bucket_accs_JEM)
-ax2.set_xticks(np.arange(20))
+ax2.set_xticks(np.arange(0, 20, 4))
 ax2.set_xticklabels(ticklabels)
+ax2.set_ylim(0, 1)
 x = np.linspace(*ax2.get_xlim())
 y = np.linspace(*ax2.get_ylim())
 ax2.plot(x, y, linestyle='dashed', color='red')
-ax2.set_xlabel("bucket")
+ax2.set_xlabel("bucket",)
 ax2.set_ylabel("bucket accuracy")
-ax2.set_title("JEM")
+ax2.set_title("JEM", pad=20)
 
 fig.savefig("./artefacts/calibration_plots")
 

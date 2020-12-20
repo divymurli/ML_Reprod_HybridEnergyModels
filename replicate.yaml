@@ -1,1 +1,1 @@
-repository: "gs://wide-resnet-experiments"
+repository: "s3://wide-resnet-experiments"
