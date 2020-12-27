@@ -17,11 +17,6 @@ p = os.path.join(dir_path, 'params.json')
 with open(p, 'r') as f:
     params = json.load(f)
 
-gaussian_noise_var = params["gaussian_noise_var"]
-depth = params["depth"]
-widen_factor = params["widen_factor"]
-test_batch_size = params["test_batch_size"]
-
 ### IMAGE CHARACTERISTICS ###
 # define image parameters
 n_channels = 3
@@ -35,60 +30,57 @@ transform_test = transforms.Compose(
             [transforms.ToTensor(),
              # normalize by the mean, stdev of the training set
              transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2488, 0.2453, 0.2633)),
-             lambda x: x + gaussian_noise_var * torch.randn_like(x)]
+             lambda x: x + params["gaussian_noise_var"] * torch.randn_like(x)]
 )
 
 testset = torchvision.datasets.CIFAR10(root='./data', train=False,
                                        download=True, transform=transform_test)
 
-testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
+testloader = torch.utils.data.DataLoader(testset, batch_size=params["test_batch_size"],
                                          shuffle=False, num_workers=2)
 
-#define the device
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-# model
-class WRN_Energy(nn.Module):
-    def __init__(self, depth, widen_factor, dropout_rate, num_classes):
-        super(WRN_Energy, self).__init__()
-
-        self.network = wide_resnet_energy_output.WideResNet_Penultimate(depth, widen_factor, dropout_rate, num_classes)
-        self.classification_layer = nn.Linear(self.network.penultimate_layer, num_classes)
-
-    def classify(self, x):
-        penultimate_output = self.network(x)
-        return self.classification_layer(penultimate_output).squeeze()
-
-    def forward(self, x):
-        logits = self.classify(x)
-
-        energy = torch.logsumexp(logits, 1)
-
-        return energy
 
 #Helper functions
 
-def load_model_and_buffer(load_dir, with_energy=True):
+
+def load_model_and_buffer(load_dir, device, with_energy=True):
+
+    """
+    :param load_dir: (str) directory from which to load model and buffer
+    :param with_energy: (bool) if loading an ordinary model, or an energy-trained model with buffer
+    :return: (obj) model (and buffer)
+    """
 
     if with_energy:
         print(f"loading model and buffer from {load_dir} ...")
-        model = WRN_Energy(depth, widen_factor, 0.0, 10)
+        model = wide_resnet_energy_output.WRN_Energy(params["depth"], params["widen_factor"], 0.0, 10)
         checkpoint_dict = torch.load(load_dir)
         model.load_state_dict(checkpoint_dict["model"])
         model = model.to(device)
         buffer = checkpoint_dict["buffer"]
 
         return model, buffer
+
     else:
         print(f"loading model from {load_dir} ...")
-        model = wide_resnet.WideResNet(depth, widen_factor, 0.0, 10)
+        model = wide_resnet.WideResNet(params["depth"], params["widen_factor"], 0.0, 10)
         model_dict = torch.load(load_dir)
         model.load_state_dict(model_dict)
         model = model.to(device)
 
         return model
 
-def correct_and_confidence(model, loader, with_energy=True):
+
+def correct_and_confidence(model, loader, device, with_energy=True):
+
+    """
+    return the correctness and confidences of predictions
+    :param model: (obj) model
+    :param loader: (iter) train or test loader
+    :param with_energy: (bool) use energy or not
+    :return: (arr) array of shape (examples, 2) of correct outputs and confidences
+    """
+
     with torch.no_grad():
         model.eval()
         confidences = []
@@ -103,13 +95,25 @@ def correct_and_confidence(model, loader, with_energy=True):
             _, predicted = torch.max(logits.data, 1)
             softmaxed_logits = nn.Softmax(dim=1)(logits)
             confidence, _ = torch.max(softmaxed_logits.data, 1)
+            confidence = confidence.float().cpu().numpy()
             confidences.extend(confidence)
             correct = (predicted == labels).float().cpu().numpy()
             corrects.extend(correct)
 
     return np.array(sorted(list(zip(corrects, confidences)), key=lambda x: x[1]))
 
+
 def calibration_buckets(zipped_corr_conf):
+
+    """
+    return calibration buckets
+    :param zipped_corr_conf: (arr)
+    :return:
+            (list) bucket boundaries
+            (list) averaged accuracy of examples within each bucket
+            (list) averaged confidence of examples within each bucket
+            (list) number of examples in each bucket
+    """
 
     thresholds = np.linspace(0, 1, 21)
     corrects = zipped_corr_conf[:, 0]
@@ -143,6 +147,15 @@ def calibration_buckets(zipped_corr_conf):
 
 def expected_calibration_error(data_length, bucket_accs, bucket_confs, bucket_totals):
 
+    """
+    compute expected calibration error (ECE)
+    :param data_length: (int) number of examples
+    :param bucket_accs: (list) averaged accuracy in each bucket
+    :param bucket_confs: (list) averaged confidence in each bucket
+    :param bucket_totals: (list) number of examples in each bucket
+    :return: (float) ECE
+    """
+
     normalization = (1/data_length)*np.array(bucket_totals)
     ece = np.abs(np.array(bucket_accs) - np.array(bucket_confs))
 
@@ -150,73 +163,78 @@ def expected_calibration_error(data_length, bucket_accs, bucket_confs, bucket_to
 
     return ece
 
+def main(load_dir_JEM, load_dir_sup):
+    # Analysis
+
+    #define device
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    print(f"device: {device}")
+
+    print("loading JEM and supervised models ...")
+    model_JEM, buffer = load_model_and_buffer(load_dir_JEM, device)
+    model_sup = load_model_and_buffer(load_dir_sup, device, with_energy=False)
+
+    print("computing calibrations ...")
+    zipped_corr_conf_JEM = correct_and_confidence(model_JEM, testloader, device)
+    zipped_corr_conf_sup = correct_and_confidence(model_sup, testloader, device, with_energy=False)
+
+    print("saving intermediate calibrations ...")
+    with open("zipped_corr_conf.npy", "wb") as f:
+        np.save(f, zipped_corr_conf_JEM)
+
+    with open("zipped_corr_conf_supervised.npy", "wb") as f:
+        np.save(f, zipped_corr_conf_sup)
+
+    zipped_corr_conf_sup = np.load("zipped_corr_conf_supervised.npy")
+    zipped_corr_conf = np.load("zipped_corr_conf.npy")
+    buckets, bucket_accs, bucket_confs, bucket_totals = calibration_buckets(zipped_corr_conf_sup)
+    buckets, bucket_accs_JEM, bucket_confs_JEM, bucket_totals_JEM = calibration_buckets(zipped_corr_conf)
+    ticklabels = [round(i, 1) for i in np.linspace(0, 1, 6)][:-1]
+
+    fig = plt.figure(figsize=(20, 10), facecolor="white")
+
+    ax = fig.add_subplot(121)
+    ax.bar(np.arange(20), height=bucket_accs)
+    ax.set_xticks(np.arange(0, 20, 4))
+    ax.set_xticklabels(ticklabels)
+    ax.set_ylim(0, 1)
+    x = np.linspace(*ax.get_xlim())
+    y = np.linspace(*ax.get_ylim())
+    ax.plot(x, y, linestyle='dashed', color='red')
+    ax.set_xlabel("bucket")
+    ax.set_ylabel("bucket accuracy")
+    ax.set_title("Ordinary Supervised", pad=20)
+
+    ax2 = fig.add_subplot(122)
+    ax2.bar(np.arange(20), height=bucket_accs_JEM)
+    ax2.set_xticks(np.arange(0, 20, 4))
+    ax2.set_xticklabels(ticklabels)
+    ax2.set_ylim(0, 1)
+    x = np.linspace(*ax2.get_xlim())
+    y = np.linspace(*ax2.get_ylim())
+    ax2.plot(x, y, linestyle='dashed', color='red')
+    ax2.set_xlabel("bucket", )
+    ax2.set_ylabel("bucket accuracy")
+    ax2.set_title("JEM", pad=20)
+
+    fig.savefig("./artefacts/calibration_plots.png")
+
+    ece_sup = expected_calibration_error(10000, bucket_accs, bucket_confs, bucket_totals)
+    ece_JEM = expected_calibration_error(10000, bucket_accs_JEM, bucket_confs_JEM, bucket_totals_JEM)
+    print(f"ece_sup: {ece_sup}")
+    print(f"ece_JEM: {ece_JEM}")
 
 
-#load_dir = "./artefacts/ckpt_145_epochs.pt"
-load_dir = "./artefacts/model_145_epochs.pt"
+if __name__ == "__main__":
 
-# Analysis
+    # specify directory to load models
+    # TODO: put these inside params.json
+    load_dir_JEM = "./artefacts/ckpt_145_epochs.pt"
+    load_dir_sup = "./artefacts/model_145_epochs.pt"
 
-"""
-model, buffer = load_model_and_buffer(load_dir)
+    main(load_dir_JEM=load_dir_JEM, load_dir_sup=load_dir_sup)
 
-zipped_corr_conf = correct_and_confidence(model, testloader)
 
-with open("zipped_corr_conf.npy", "wb") as f:
-    np.save(f, zipped_corr_conf)
-"""
 
-"""
-model = load_model_and_buffer(load_dir, with_energy=False)
-
-zipped_corr_conf = correct_and_confidence(model, testloader, with_energy=False)
-
-with open("zipped_corr_conf_supervised.npy", "wb") as f:
-    np.save(f, zipped_corr_conf)
-"""
-
-zipped_corr_conf_sup = np.load("zipped_corr_conf_supervised.npy")
-zipped_corr_conf = np.load("zipped_corr_conf.npy")
-buckets, bucket_accs, bucket_confs, bucket_totals = calibration_buckets(zipped_corr_conf_sup)
-buckets, bucket_accs_JEM, bucket_confs_JEM, bucket_totals_JEM = calibration_buckets(zipped_corr_conf)
-ticklabels = [round(i, 1) for i in np.linspace(0, 1, 6)][:-1]
-
-fig = plt.figure(figsize=(20, 10), facecolor="white")
-
-ax = fig.add_subplot(121)
-ax.bar(np.arange(20), height=bucket_accs)
-ax.set_xticks(np.arange(0, 20, 4))
-ax.set_xticklabels(ticklabels)
-ax.set_ylim(0, 1)
-x = np.linspace(*ax.get_xlim())
-y = np.linspace(*ax.get_ylim())
-ax.plot(x, y, linestyle='dashed', color='red')
-ax.set_xlabel("bucket")
-ax.set_ylabel("bucket accuracy")
-ax.set_title("Ordinary Supervised", pad=20)
-
-ax2 = fig.add_subplot(122)
-ax2.bar(np.arange(20), height=bucket_accs_JEM)
-ax2.set_xticks(np.arange(0, 20, 4))
-ax2.set_xticklabels(ticklabels)
-ax2.set_ylim(0, 1)
-x = np.linspace(*ax2.get_xlim())
-y = np.linspace(*ax2.get_ylim())
-ax2.plot(x, y, linestyle='dashed', color='red')
-ax2.set_xlabel("bucket",)
-ax2.set_ylabel("bucket accuracy")
-ax2.set_title("JEM", pad=20)
-
-fig.savefig("./artefacts/calibration_plots")
-
-ece_sup = expected_calibration_error(10000, bucket_accs, bucket_confs, bucket_totals)
-ece_JEM = expected_calibration_error(10000, bucket_accs_JEM, bucket_confs_JEM, bucket_totals_JEM)
-print(f"ece_sup: {ece_sup}")
-print(f"ece_JEM: {ece_JEM}")
-
-print(buckets)
-print(bucket_accs)
-print(bucket_confs)
-print(np.linspace(0, 1, 21)[1:])
 
 
