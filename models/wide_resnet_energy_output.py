@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
@@ -78,4 +79,23 @@ class WideResNet_Penultimate(nn.Module):
         out = out.view(out.size(0), -1)
 
         return out
+
+
+class WRN_Energy(nn.Module):
+    def __init__(self, depth, widen_factor, dropout_rate, num_classes):
+        super(WRN_Energy, self).__init__()
+
+        self.network = WideResNet_Penultimate(depth, widen_factor, dropout_rate, num_classes)
+        self.classification_layer = nn.Linear(self.network.penultimate_layer, num_classes)
+
+    def classify(self, x):
+        penultimate_output = self.network(x)
+        return self.classification_layer(penultimate_output).squeeze()
+
+    def forward(self, x):
+        logits = self.classify(x)
+
+        energy = torch.logsumexp(logits, 1)
+
+        return energy
 
