@@ -13,8 +13,6 @@ from torch.utils.tensorboard import SummaryWriter
 
 from models import wide_resnet, resnet_official
 
-
-
 dir_path = os.path.dirname(os.path.realpath(__file__))
 p = os.path.join(dir_path, 'params.json')
 with open(p, 'r') as f:
