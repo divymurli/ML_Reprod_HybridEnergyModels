@@ -12,11 +12,12 @@ from scipy.stats import entropy
 
 # Inception score code adapted from https://github.com/sbarratt/inception-score-pytorch/blob/master/inception_score.py
 
+
 def obtain_top_k(preds, k):
     """
-    :param preds: array of predictions (shape (N_imgs, N_classes))
-    :param k: top k most confident predictions
-    :return: top_k_predictions (shape (k, N_classes)), top_k_inds (shape (k,))
+    :param preds: (arr) array of predictions (shape (N_imgs, N_classes))
+    :param k: (int) top k most confident predictions
+    :return: (arr) top_k_predictions (shape (k, N_classes)), top_k_inds (shape (k,))
     """
     max_preds = np.amax(preds, axis=1)
     top_k_inds = np.argpartition(max_preds, -k)[-k:]
@@ -24,14 +25,16 @@ def obtain_top_k(preds, k):
 
     return top_k_preds, top_k_inds
 
+
 def ensemble_buffer(buffers):
     """
-    :param buffers: list of buffers
-    :return: ensembled buffer
+    :param buffers: (list[arr]) list of buffers
+    :return: (arr) ensembled buffer
     """
     stacked_buffers = torch.stack(buffers)
 
     return torch.mean(stacked_buffers, dim=0)
+
 
 def obtain_inception_predictions(imgs, cuda=True, batch_size=32, resize=False, save_preds=False):
     """Computes the inception model predictions of the generated images imgs
@@ -87,9 +90,9 @@ def obtain_inception_predictions(imgs, cuda=True, batch_size=32, resize=False, s
 
 def inception_score(preds, splits=1):
     """
-    :param preds: np array of network predictions (shape: (N_imgs, N_classes)
-    :param splits: number of times to split predictions list
-    :return: score (scalar)
+    :param preds: (arr) np array of network predictions (shape: (N_imgs, N_classes)
+    :param splits: (int) number of times to split predictions list
+    :return: (float) score
     """
 
     # Now compute the mean kl-div
