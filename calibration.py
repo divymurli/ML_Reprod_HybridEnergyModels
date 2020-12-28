@@ -2,27 +2,28 @@ import torch
 import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
-
 import matplotlib.pyplot as plt
 import numpy as np
 import os
 import json
+from models import wide_resnet, wide_resnet_energy_output
+from utils import load_model_and_buffer
 
 plt.rcParams.update({'font.size': 25})
-
-from models import wide_resnet, wide_resnet_energy_output
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 p = os.path.join(dir_path, 'params.json')
 with open(p, 'r') as f:
     params = json.load(f)
 
-### IMAGE CHARACTERISTICS ###
+
+# IMAGE CHARACTERISTICS #
 # define image parameters
 n_channels = 3
 im_size = 32
 
-### DATA LOADING AND AUGMENTATION ###
+
+# DATA LOADING AND AUGMENTATION #
 # normalize all pixel values to be in [-1, 1] and add Gaussian noise with mean zero, variance gaussian_noise_var
 # using the same train/test data augmentation as in the paper's code
 
@@ -38,37 +39,6 @@ testset = torchvision.datasets.CIFAR10(root='./data', train=False,
 
 testloader = torch.utils.data.DataLoader(testset, batch_size=params["test_batch_size"],
                                          shuffle=False, num_workers=2)
-
-
-#Helper functions
-
-
-def load_model_and_buffer(load_dir, device, with_energy=True):
-
-    """
-    :param load_dir: (str) directory from which to load model and buffer
-    :param with_energy: (bool) if loading an ordinary model, or an energy-trained model with buffer
-    :return: (obj) model (and buffer)
-    """
-
-    if with_energy:
-        print(f"loading model and buffer from {load_dir} ...")
-        model = wide_resnet_energy_output.WRN_Energy(params["depth"], params["widen_factor"], 0.0, 10)
-        checkpoint_dict = torch.load(load_dir)
-        model.load_state_dict(checkpoint_dict["model"])
-        model = model.to(device)
-        buffer = checkpoint_dict["buffer"]
-
-        return model, buffer
-
-    else:
-        print(f"loading model from {load_dir} ...")
-        model = wide_resnet.WideResNet(params["depth"], params["widen_factor"], 0.0, 10)
-        model_dict = torch.load(load_dir)
-        model.load_state_dict(model_dict)
-        model = model.to(device)
-
-        return model
 
 
 def correct_and_confidence(model, loader, device, with_energy=True):
@@ -145,6 +115,7 @@ def calibration_buckets(zipped_corr_conf):
 
     return buckets, bucket_accs, bucket_confs, bucket_totals
 
+
 def expected_calibration_error(data_length, bucket_accs, bucket_confs, bucket_totals):
 
     """
@@ -163,16 +134,21 @@ def expected_calibration_error(data_length, bucket_accs, bucket_confs, bucket_to
 
     return ece
 
+
 def main(load_dir_JEM, load_dir_sup):
     # Analysis
 
-    #define device
+    # define device
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"device: {device}")
 
+    # define model
+    JEM_architecture = wide_resnet_energy_output.WRN_Energy(params["depth"], params["widen_factor"], 0.0, 10)
+    supervised_architecture = wide_resnet.WideResNet(params["depth"], params["widen_factor"], 0.0, 10)
+
     print("loading JEM and supervised models ...")
-    model_JEM, buffer = load_model_and_buffer(load_dir_JEM, device)
-    model_sup = load_model_and_buffer(load_dir_sup, device, with_energy=False)
+    model_JEM, buffer = load_model_and_buffer(load_dir_JEM, JEM_architecture, device)
+    model_sup = load_model_and_buffer(load_dir_sup, supervised_architecture, device, with_energy=False)
 
     print("computing calibrations ...")
     zipped_corr_conf_JEM = correct_and_confidence(model_JEM, testloader, device)
