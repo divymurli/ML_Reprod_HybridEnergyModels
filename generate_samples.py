@@ -4,41 +4,12 @@ import torch
 
 import torchvision
 from models import wide_resnet_energy_output
+from utils import create_random_buffer, run_sgld, load_model_and_buffer
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 p = os.path.join(dir_path, 'params.json')
 with open(p, 'r') as f:
     params = json.load(f)
-
-
-def run_fresh_sgld(model, x_k, sgld_steps, sgld_step_size, sgld_noise):
-
-    model.eval()
-    for step in range(sgld_steps):
-        print(f"{step+1} of {sgld_steps} steps")
-        x_k.requires_grad = True
-        d_model_dx = torch.autograd.grad(model(x_k).sum(), x_k, retain_graph=True)[0] # TODO: remove retain graph=TRUE
-        x_k = x_k.detach()
-        x_k += sgld_step_size * d_model_dx + sgld_noise * torch.randn_like(x_k)
-
-    sgld_samples = x_k.detach()
-
-    return sgld_samples
-
-
-def create_random_buffer(size, n_channels, im_size):
-    return torch.FloatTensor(size, n_channels, im_size, im_size).uniform_(-1, 1)
-
-
-def load_model_and_buffer(load_dir, device):
-    print(f"loading model and buffer from {load_dir} ...")
-    model = wide_resnet_energy_output.WRN_Energy(params["depth"], params["widen_factor"], 0.0, 10)
-    checkpoint_dict = torch.load(load_dir)
-    model.load_state_dict(checkpoint_dict["model"])
-    model = model.to(device)
-    buffer = checkpoint_dict["buffer"]
-
-    return model, buffer
 
 
 def main(save_dir, model_load_dir, sgld_step_size, sgld_noise, sgld_steps=10):
@@ -57,10 +28,12 @@ def main(save_dir, model_load_dir, sgld_step_size, sgld_noise, sgld_steps=10):
     plot(f"{save_dir}initial_start.png", x_k)
     x_k = x_k.to(device)
 
-    model, _ = load_model_and_buffer(model_load_dir, device)
+    architecture = wide_resnet_energy_output.WRN_Energy(params["depth"], params["widen_factor"], 0.0, 10)
+
+    model, _ = load_model_and_buffer(model_load_dir, architecture, device)
     model = model.to(device)
 
-    sgld_samples = run_fresh_sgld(model, x_k, sgld_steps, sgld_step_size, sgld_noise)
+    sgld_samples = run_sgld(model, x_k, sgld_steps, sgld_step_size, sgld_noise)
 
     plot(f"{save_dir}fresh_sgld_{sgld_steps}.png", sgld_samples)
 
