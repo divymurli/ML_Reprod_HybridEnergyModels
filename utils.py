@@ -99,4 +99,4 @@ def save_model_and_buffer(save_dir, model, buffer, epoch, device, last=False):
     else:
         torch.save(checkpoint_dict, f"{save_dir}last_ckpt.pt")
     model.to(device)
-    print("model and buffer saved!"
+    print("model and buffer saved!")
