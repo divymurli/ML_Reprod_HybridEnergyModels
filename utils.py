@@ -70,6 +70,7 @@ def save_checkpoint(model, save_dir, epoch, device):
     :param model: (obj) model
     :param save_dir: (str) checkpoint save directory
     :param epoch: (int) checkpoint epoch
+    :param device: specify device
     :return: None
     """
 
@@ -77,6 +78,25 @@ def save_checkpoint(model, save_dir, epoch, device):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     model.cpu()  # TODO: this line doesn't seem to work when training with TPU
-    torch.save(model.state_dict(), f"{save_path_prefix}_{epoch}_epochs.pt")
+    torch.save(model.state_dict(), f"{save_dir}_{epoch}_epochs.pt")
     model.to(device)
     print("checkpoint saved!")
+
+def save_model_and_buffer(save_dir, model, buffer, epoch, device, last=False):
+    print(f"saving model and buffer checkpoint at epoch {epoch} ...")
+
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    model.cpu() # TODO: this line doesn't seem to work when training with TPU
+    checkpoint_dict = {
+        "model": model.state_dict(),
+        "buffer": buffer
+    }
+
+    if not last:
+        torch.save(checkpoint_dict, f"{save_dir}ckpt_{epoch}_epochs.pt")
+
+    else:
+        torch.save(checkpoint_dict, f"{save_dir}last_ckpt.pt")
+    model.to(device)
+    print("model and buffer saved!"
