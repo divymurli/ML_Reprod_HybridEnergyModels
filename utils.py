@@ -42,6 +42,8 @@ def load_model_and_buffer(load_dir, model, device, with_energy=True):
 
     """
     :param load_dir: (str) directory from which to load model and buffer
+    :param model: (obj) model architecture
+    :param device: specify device
     :param with_energy: (bool) if loading an ordinary model, or an energy-trained model with buffer
     :return: (obj) model, ((arr) buffer)
     """
@@ -81,6 +83,7 @@ def save_checkpoint(model, save_dir, epoch, device):
     torch.save(model.state_dict(), f"{save_dir}_{epoch}_epochs.pt")
     model.to(device)
     print("checkpoint saved!")
+
 
 def save_model_and_buffer(save_dir, model, buffer, epoch, device, last=False):
     print(f"saving model and buffer checkpoint at epoch {epoch} ...")
