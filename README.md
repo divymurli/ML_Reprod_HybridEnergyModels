@@ -16,7 +16,7 @@ Local code was run on Mac OS X Mojave, version 10.14.6
 ## Training
 
 * To train a model with the supervised training method run `python train_supervised.py`. Model artefacts (checkpoints) will be stored in `./artefacts_supervised`.
-* To train a model with the joint energy-based model (JEM) training method, run `python train_JEM_algorithm.py`. Model artefacts (checkpoints, images) will be stored in `./artefacts`. _Note_: The JEM training technique is unstable, and the training run will crash. This is discussed in Appendix H.3 of the [paper](https://arxiv.org/abs/1912.03263). If and when it does crash, do the following: in `params.json`, change `params["load_from_checkpoint"]` to `True`, and change `params["start_epoch"]` to the epoch where it crashed. Try loading from earlier checkpoints if the most recent one crashes. Re-run, and repeat.
+* To train a model with the joint energy-based model (JEM) training method, run `python train_JEM_algorithm.py`. Model artefacts (checkpoints, images) will be stored in `./artefacts`. _Note_: The JEM training technique is unstable, and the training run will crash. This is discussed in Appendix H.3 of the [paper](https://arxiv.org/abs/1912.03263). If and when it does crash, do the following: In `params.json`, change `params["load_from_checkpoint"]` to `True`, and change `params["start_epoch"]` to the epoch where it crashed. Try loading from earlier checkpoints if the most recent one crashes. Re-run, and repeat.
 
 ## Analysis
 
