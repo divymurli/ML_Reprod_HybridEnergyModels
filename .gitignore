@@ -1,3 +1,4 @@
+__pycache__/
 .idea
 data
 venv
@@ -9,3 +10,6 @@ runs
 artefacts
 replicate.yaml
 scratch.py
+other_ckpts/
+artefacts_supervised/
+images/
