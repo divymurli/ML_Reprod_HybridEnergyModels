@@ -14,7 +14,7 @@ def create_random_buffer(size, n_channels, im_size):
     return torch.FloatTensor(size, n_channels, im_size, im_size).uniform_(-1, 1)
 
 
-def run_sgld(model, x_k, sgld_steps, sgld_step_size, sgld_noise):
+def run_sgld(model, x_k, sgld_steps, sgld_step_size, sgld_noise, print_step=False):
 
     """
     :param model: (obj) model
@@ -25,17 +25,15 @@ def run_sgld(model, x_k, sgld_steps, sgld_step_size, sgld_noise):
     :return:
     """
 
-    model.eval()
     for step in range(sgld_steps):
-        print(f"{step+1} of {sgld_steps} steps")
+        if print_step:
+            print(f"{step+1} of {sgld_steps} steps")
         x_k.requires_grad = True
         d_model_dx = torch.autograd.grad(model(x_k).sum(), x_k, retain_graph=True)[0] # TODO: remove retain graph=TRUE
         x_k = x_k.detach()
         x_k += sgld_step_size * d_model_dx + sgld_noise * torch.randn_like(x_k)
 
-    sgld_samples = x_k.detach()
-
-    return sgld_samples
+    return x_k
 
 
 def load_model_and_buffer(load_dir, model, device, with_energy=True):
@@ -86,6 +84,17 @@ def save_checkpoint(model, save_dir, epoch, device):
 
 
 def save_model_and_buffer(save_dir, model, buffer, epoch, device, last=False):
+
+    """
+    :param save_dir: (str) location to save checkpoint
+    :param model: (obj) model
+    :param buffer: (arr) replay buffer
+    :param epoch: (int) epoch
+    :param device: (obj) device
+    :param last: (bool) save last checkpoint or not
+    :return: None
+    """
+
     print(f"saving model and buffer checkpoint at epoch {epoch} ...")
 
     if not os.path.exists(save_dir):
