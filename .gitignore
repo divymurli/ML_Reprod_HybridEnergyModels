@@ -7,7 +7,6 @@ models/__pycache__
 model.pth
 .DS_Store
 runs
-artefacts
 replicate.yaml
 scratch.py
 other_ckpts/
