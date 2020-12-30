@@ -22,7 +22,7 @@ def run_sgld(model, x_k, sgld_steps, sgld_step_size, sgld_noise, print_step=Fals
     :param sgld_steps: (int) number of sgld steps
     :param sgld_step_size: (float) sgld step size parameter
     :param sgld_noise: (float) sgld noise parameter
-    :return:
+    :return: sgld samples
     """
 
     for step in range(sgld_steps):
