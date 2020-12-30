@@ -84,6 +84,13 @@ if params["load_from_checkpoint"] != "False":
 #sample buffer initially
 def sample_buffer(buffer, batch_size, device):
 
+    """
+    :param buffer: (arr) replay buffer
+    :param batch_size: (int) batch size
+    :param device: (obj) device
+    :return: (arr) buffer samples, (arr) buffer sample indices
+    """
+
     # sample from buffer
     buffer_length = buffer.size()[0]
     sample_indices = torch.randint(0, buffer_length, (batch_size, ))
@@ -99,17 +106,21 @@ def sample_buffer(buffer, batch_size, device):
 
 
 # run sgld
-def run_sgld(model, buffer, batch_size, device):
+def train_sgld(model, buffer, batch_size, device):
 
-    x_k, sample_indices = sample_buffer(buffer, batch_size, device)
-    #x_k = Variable(init_samples, requires_grad=True)
+    """
+    :param model: (obj) model
+    :param buffer: (arr) replay buffer
+    :param batch_size: (int) batch size
+    :param device: (obj) device
+    :return: (arr) sgld samples
+    :intermediate: update buffer
+    """
+
+    x_0, sample_indices = sample_buffer(buffer, batch_size, device)
 
     model.eval()
-    for step in range(params["sgld_steps"]):
-        x_k.requires_grad = True
-        d_model_dx = torch.autograd.grad(model(x_k).sum(), x_k, retain_graph=True)[0] # TODO: remove retain graph=TRUE
-        x_k = x_k.detach()
-        x_k += params["sgld_step_size"] * d_model_dx + params["sgld_noise"] * torch.randn_like(x_k)
+    x_k = utils.run_sgld(model, x_0, params["sgld_steps"], params["sgld_step_size"], params["sgld_noise"])
     model.train()
 
     sgld_samples = x_k.detach()
@@ -119,25 +130,6 @@ def run_sgld(model, buffer, batch_size, device):
 
     return sgld_samples
 
-
-def save_model_and_buffer(save_dir, model, buffer, epoch, last=False):
-    print(f"saving model and buffer checkpoint at epoch {epoch} ...")
-
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-    model.cpu()  # TODO: this line doesn't seem to work when training with TPU
-    checkpoint_dict = {
-        "model": model.state_dict(),
-        "buffer": buffer
-    }
-
-    if not last:
-        torch.save(checkpoint_dict, f"{save_dir}ckpt_{epoch}_epochs.pt")
-
-    else:
-        torch.save(checkpoint_dict, f"{save_dir}last_ckpt.pt")
-    model.to(device)
-    print("model and buffer saved!")
 
 # TRAINING ###
 
@@ -197,7 +189,7 @@ def train(params):
 
             if params["generative_weight"] > 0:
                 # Lines 4-7: Sample from buffer, run SGLD
-                sgld_samples = run_sgld(model, buffer, params["train_batch_size"], device)
+                sgld_samples = train_sgld(model, buffer, params["train_batch_size"], device)
 
                 # Lines 8-9: add generative loss (I believe in the paper the signs on the two terms should be flipped)
                 generative_loss = model(sgld_samples).mean() - model(inputs).mean()
@@ -208,7 +200,7 @@ def train(params):
                     train_step += 1
 
             if i % 100 == 0:
-                plot_sgld_samples = run_sgld(model, buffer, params["train_batch_size"], device)
+                plot_sgld_samples = train_sgld(model, buffer, params["train_batch_size"], device)
                 plot(os.path.join(params["image_prefix"], f"sgld_{epoch}_{i}.png"), plot_sgld_samples)
 
             if loss.abs().item() > 1e8:
@@ -224,7 +216,7 @@ def train(params):
                 xm.mark_step()
 
         if epoch % params["save_every"] == 0:
-            save_model_and_buffer(params["save_path"], model, buffer, epoch, last=False)
+            utils.save_model_and_buffer(params["save_path"], model, buffer, epoch, device, last=False)
 
             # Line 11: add to buffer, done in run_sgld function
         if epoch % params["eval_every"] == 0:
@@ -245,7 +237,7 @@ def train(params):
                 loss = np.mean(losses)
                 acc = np.mean(corrects)
                 tqdm.write(f"Epoch {epoch} validation accuracy: {acc}, Epoch validation loss: {loss}")
-                save_model_and_buffer(params["save_path"], model, buffer, epoch, last=True)
+                utils.save_model_and_buffer(params["save_path"], model, buffer, epoch, device, last=True)
 
                 writer.add_scalar("LR/lr", scheduler.get_last_lr()[0], global_step=val_step)
                 writer.add_scalar("Loss/val", loss, global_step=val_step)
