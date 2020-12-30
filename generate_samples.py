@@ -12,7 +12,7 @@ with open(p, 'r') as f:
     params = json.load(f)
 
 
-def main(save_dir, model_load_dir, sgld_step_size, sgld_noise, sgld_steps=10):
+def main(save_dir, model_load_dir, sgld_step_size, sgld_noise, sgld_steps=50):
 
     sqrt = lambda x: int(torch.sqrt(torch.Tensor([x])))
     plot = lambda path, x: torchvision.utils.save_image(torch.clamp(x, -1, 1), path, normalize=True, nrow=sqrt(x.size(0)))
@@ -32,9 +32,9 @@ def main(save_dir, model_load_dir, sgld_step_size, sgld_noise, sgld_steps=10):
 
     model, _ = load_model_and_buffer(model_load_dir, architecture, device)
     model = model.to(device)
-
-    sgld_samples = run_sgld(model, x_k, sgld_steps, sgld_step_size, sgld_noise)
-
+    model.eval()
+    sgld_samples = run_sgld(model, x_k, sgld_steps, sgld_step_size, sgld_noise, print_step=True)
+    sgld_samples = sgld_samples.detach()
     plot(f"{save_dir}fresh_sgld_{sgld_steps}.png", sgld_samples)
 
     sgld_cpu_samples = {"buffer": sgld_samples.cpu()}
@@ -51,7 +51,8 @@ if __name__ == "__main__":
     main(save_dir=save_dir,
          model_load_dir=model_load_path,
          sgld_step_size=params["sgld_step_size"],
-         sgld_noise=params["sgld_noise"])
+         sgld_noise=params["sgld_noise"],
+         sgld_steps=20)
 
 
 
