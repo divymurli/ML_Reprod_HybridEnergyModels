@@ -1,6 +1,6 @@
 # ML Reproducibility Challenge 2020: Your Classifier is Secretly an Energy Based Model and You Should Treat it Like One
 
-This repo contains a re-implemimentation of the 2020 ICLR paper [Your Classifier is Secretly an Energy Based Model and You Should Treat it Like One](https://arxiv.org/abs/1912.03263). A reproducibility report, submitted to the 2020 ML reproducibility challenge, is [here](https://openreview.net/forum?id=ShrPBsjByVa&referrer=%5BML%20Reproducibility%20Challenge%202020%5D(%2Fgroup%3Fid%3DML_Reproducibility_Challenge%2F2020)).
+This repo contains a re-implemimentation of the 2020 ICLR paper [Your Classifier is Secretly an Energy Based Model and You Should Treat it Like One](https://arxiv.org/abs/1912.03263). A reproducibility report, submitted to the 2020 ML reproducibility challenge, is available [here](https://openreview.net/forum?id=ShrPBsjByVa&referrer=%5BML%20Reproducibility%20Challenge%202020%5D(%2Fgroup%3Fid%3DML_Reproducibility_Challenge%2F2020)).
 Local code was run on Mac OS X Mojave, version 10.14.6
 
 ## Installation
