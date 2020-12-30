@@ -193,7 +193,8 @@ def main(load_dir_JEM, load_dir_sup):
     ax2.set_ylabel("bucket accuracy")
     ax2.set_title("JEM", pad=20)
 
-    fig.savefig("./artefacts/calibration_plots.png")
+    save_path = params["save_path"]
+    fig.savefig(f"{save_path}calibration_plots.png")
 
     ece_sup = expected_calibration_error(10000, bucket_accs, bucket_confs, bucket_totals)
     ece_JEM = expected_calibration_error(10000, bucket_accs_JEM, bucket_confs_JEM, bucket_totals_JEM)
@@ -204,9 +205,12 @@ def main(load_dir_JEM, load_dir_sup):
 if __name__ == "__main__":
 
     # specify directory to load models
-    # TODO: put these inside params.json
-    load_dir_JEM = "./artefacts/ckpt_145_epochs.pt"
-    load_dir_sup = "./artefacts/model_145_epochs.pt"
+
+    save_path_JEM = params["save_path"]
+    save_path_sup = params["save_path_supervised"]
+
+    load_dir_JEM = f"{save_path_JEM}ckpt_145_epochs.pt"
+    load_dir_sup = f"{save_path_sup}model_145_epochs.pt"
 
     main(load_dir_JEM=load_dir_JEM, load_dir_sup=load_dir_sup)
 
