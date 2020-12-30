@@ -22,6 +22,7 @@
 	"use_tpu": "False",
 	"save_every": 5,
 	"save_path": "./artefacts/",
+	"save_path_supervised": "./artefacts_supervised/",
 	"save_path_prefix": "./artefacts_supervised/model",
 	"save_buffer_path_prefix": "./artefacts/buffer",
 	"image_prefix": "./artefacts/images",
