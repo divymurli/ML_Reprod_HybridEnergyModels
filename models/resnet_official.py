@@ -1,12 +1,15 @@
+"""
+Adapted from the official PyTorch resnet and wide resnet implementation
+(https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py)
+but with shapes changed to work with CIFAR data.
+"""
+
 from typing import Type, Any, Union, List, Optional
 
 import torch
 import torch.nn as nn
 from torch import Tensor
 
-
-# Adapted from the official pytorch implementation of resnets: https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py
-# Changing the shapes to work out with cifar data.
 
 def conv3x3(in_planes: int, out_planes: int, stride: int = 1, groups: int = 1, dilation: int = 1) -> nn.Conv2d:
     """3x3 convolution with padding"""

@@ -1,11 +1,13 @@
+"""
+Wide ResNet implementation adapted from https://github.com/meliketoy/wide-resnet.pytorch/blob/master/networks/wide_resnet.py
+"""
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
 
-
-# Wide ResNet implementation adapted from https://github.com/meliketoy/wide-resnet.pytorch/blob/master/networks/wide_resnet.py
 
 def conv3x3(in_planes, out_planes, stride=1):
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=True)
