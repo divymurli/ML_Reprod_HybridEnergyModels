@@ -1,3 +1,8 @@
+"""
+TODO: It's always good to put a docstring in scripts (single file executables run from the terminal).
+They go here, at the top of the file.
+"""
+
 import json
 import os
 
@@ -12,33 +17,6 @@ from models import wide_resnet, wide_resnet_energy_output
 from utils import load_model_and_buffer
 
 plt.rcParams.update({'font.size': 25})
-
-dir_path = os.path.dirname(os.path.realpath(__file__))
-p = os.path.join(dir_path, 'params.json')
-with open(p, 'r') as f:
-    params = json.load(f)
-
-# IMAGE CHARACTERISTICS #
-# define image parameters
-n_channels = 3
-im_size = 32
-
-# DATA LOADING AND AUGMENTATION #
-# normalize all pixel values to be in [-1, 1] and add Gaussian noise with mean zero, variance gaussian_noise_var
-# using the same train/test data augmentation as in the paper's code
-
-transform_test = transforms.Compose([
-    transforms.ToTensor(),
-    # normalize by the mean, stdev of the training set
-    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2488, 0.2453, 0.2633)),
-    lambda x: x + params["gaussian_noise_var"] * torch.randn_like(x)
-])
-
-testset = torchvision.datasets.CIFAR10(root='./data', train=False,
-                                       download=True, transform=transform_test)
-
-testloader = torch.utils.data.DataLoader(testset, batch_size=params["test_batch_size"],
-                                         shuffle=False, num_workers=2)
 
 
 def correct_and_confidence(model, loader, device, with_energy=True):
@@ -123,6 +101,11 @@ def expected_calibration_error(data_length, bucket_accs, bucket_confs, bucket_to
     :param bucket_totals: (list) number of examples in each bucket
     :return: (float) ECE
     """
+    # TODO: If the docstring is longer than the function logic, usually the docstring should be shorter or it shouldn't
+    # be a function.
+    # Remember that the point of a function is to be an abstraction: something that hides complexity.
+    # If it's easier to read the code than understand the docstring, we haven't hidden any complexity.
+    # (Often this has to do with the number of arguments.  More args tends to be harder to understand.)
 
     normalization = (1 / data_length) * np.array(bucket_totals)
     ece = np.abs(np.array(bucket_accs) - np.array(bucket_confs))
@@ -132,7 +115,21 @@ def expected_calibration_error(data_length, bucket_accs, bucket_confs, bucket_to
     return ece
 
 
-def main(load_dir_JEM, load_dir_sup):
+def main(params, load_dir_JEM, load_dir_sup):
+    # TODO: I'd break the contents of this method up, or at least put comments in describing the flow of the logic
+    transform_test = transforms.Compose([
+        transforms.ToTensor(),
+        # normalize by the mean, stdev of the training set
+        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2488, 0.2453, 0.2633)),
+        lambda x: x + params["gaussian_noise_var"] * torch.randn_like(x)
+    ])
+
+    testset = torchvision.datasets.CIFAR10(root='./data', train=False,
+                                           download=True, transform=transform_test)
+
+    testloader = torch.utils.data.DataLoader(testset, batch_size=params["test_batch_size"],
+                                             shuffle=False, num_workers=2)
+
     # Analysis
 
     # define device
@@ -200,7 +197,10 @@ def main(load_dir_JEM, load_dir_sup):
 
 
 if __name__ == "__main__":
-    # specify directory to load models
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    p = os.path.join(dir_path, 'params.json')
+    with open(p, 'r') as f:
+        params = json.load(f)
 
     save_path_JEM = params["save_path"]
     save_path_sup = params["save_path_supervised"]
@@ -208,4 +208,8 @@ if __name__ == "__main__":
     load_dir_JEM = f"{save_path_JEM}ckpt_145_epochs.pt"
     load_dir_sup = f"{save_path_sup}model_145_epochs.pt"
 
-    main(load_dir_JEM=load_dir_JEM, load_dir_sup=load_dir_sup)
+    main(
+        params=params,
+        load_dir_JEM=load_dir_JEM,
+        load_dir_sup=load_dir_sup
+    )
