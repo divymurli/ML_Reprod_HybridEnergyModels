@@ -1,24 +1,24 @@
 import torch
-import torchvision
 import torch.nn as nn
-from torch.autograd import Variable
-from models import wide_resnet, resnet_official, wide_resnet_energy_output
+import torchvision
+
 import inception
-import numpy as np
+from models import wide_resnet, wide_resnet_energy_output
 
-#This file is just a playground to mess around and make sure that things work. It's like scratch paper, and hence is not documented well.
+# This file is just a playground to mess around and make sure that things work. It's like scratch paper, and hence is not documented well.
 
-#test to make sure the shapes go through
-#net = wide_resnet.Wide_ResNet(28, 2, 0.0, 10)
-#print(net)
-#y = net(Variable(torch.randn(9, 3, 32, 32)))
-#print(y)
-#print(y.size())
+# test to make sure the shapes go through
+# net = wide_resnet.Wide_ResNet(28, 2, 0.0, 10)
+# print(net)
+# y = net(Variable(torch.randn(9, 3, 32, 32)))
+# print(y)
+# print(y.size())
 
-#net = resnet_official.wrn_28_2()
-#net = wide_resnet.WideResNet(28, 2, 0.0, 10)
+# net = resnet_official.wrn_28_2()
+# net = wide_resnet.WideResNet(28, 2, 0.0, 10)
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 
 class WRN_Energy(nn.Module):
     def __init__(self, depth, widen_factor, dropout_rate, num_classes):
@@ -38,8 +38,8 @@ class WRN_Energy(nn.Module):
 
         return energy
 
-def load_model_and_buffer(load_dir, with_energy=True):
 
+def load_model_and_buffer(load_dir, with_energy=True):
     if with_energy:
         print(f"loading model and buffer from {load_dir} ...")
         model = WRN_Energy(28, 2, 0.0, 10)
@@ -57,6 +57,7 @@ def load_model_and_buffer(load_dir, with_energy=True):
         model = model.to(device)
 
         return model
+
 
 """
 #net = wide_resnet_energy_output.WideResNet_Penultimate(28, 10, 0.0, 10)
@@ -126,8 +127,3 @@ samples = torch.clamp(samples["buffer"], -1, 1)
 predictions = inception.obtain_inception_predictions(samples, cuda=False, batch_size=50, resize=True, save_preds=False)
 inception_score = inception.inception_score(predictions, splits=1)
 print(inception_score)
-
-
-
-
-

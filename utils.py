@@ -1,9 +1,9 @@
-import torch
 import os
+
+import torch
 
 
 def create_random_buffer(size, n_channels, im_size):
-
     """
     :param size: (int) number of images in buffer
     :param n_channels: (int) channels
@@ -15,7 +15,6 @@ def create_random_buffer(size, n_channels, im_size):
 
 
 def run_sgld(model, x_k, sgld_steps, sgld_step_size, sgld_noise, print_step=False):
-
     """
     :param model: (obj) model
     :param x_k: (arr) sgld tensor
@@ -27,9 +26,9 @@ def run_sgld(model, x_k, sgld_steps, sgld_step_size, sgld_noise, print_step=Fals
 
     for step in range(sgld_steps):
         if print_step:
-            print(f"{step+1} of {sgld_steps} steps")
+            print(f"{step + 1} of {sgld_steps} steps")
         x_k.requires_grad = True
-        d_model_dx = torch.autograd.grad(model(x_k).sum(), x_k, retain_graph=True)[0] # TODO: remove retain graph=TRUE
+        d_model_dx = torch.autograd.grad(model(x_k).sum(), x_k, retain_graph=True)[0]  # TODO: remove retain graph=TRUE
         x_k = x_k.detach()
         x_k += sgld_step_size * d_model_dx + sgld_noise * torch.randn_like(x_k)
 
@@ -37,7 +36,6 @@ def run_sgld(model, x_k, sgld_steps, sgld_step_size, sgld_noise, print_step=Fals
 
 
 def load_model_and_buffer(load_dir, model, device, with_energy=True):
-
     """
     :param load_dir: (str) directory from which to load model and buffer
     :param model: (obj) model architecture
@@ -65,7 +63,6 @@ def load_model_and_buffer(load_dir, model, device, with_energy=True):
 
 
 def save_checkpoint(model, save_dir, epoch, device):
-
     """
     :param model: (obj) model
     :param save_dir: (str) checkpoint save directory
@@ -84,7 +81,6 @@ def save_checkpoint(model, save_dir, epoch, device):
 
 
 def save_model_and_buffer(save_dir, model, buffer, epoch, device, last=False):
-
     """
     :param save_dir: (str) location to save checkpoint
     :param model: (obj) model
@@ -99,7 +95,7 @@ def save_model_and_buffer(save_dir, model, buffer, epoch, device, last=False):
 
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
-    model.cpu() # TODO: this line doesn't seem to work when training with TPU
+    model.cpu()  # TODO: this line doesn't seem to work when training with TPU
     checkpoint_dict = {
         "model": model.state_dict(),
         "buffer": buffer

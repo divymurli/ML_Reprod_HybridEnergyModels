@@ -1,11 +1,13 @@
+import json
+import os
+
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
-import matplotlib.pyplot as plt
-import numpy as np
-import os
-import json
+
 from models import wide_resnet, wide_resnet_energy_output
 from utils import load_model_and_buffer
 
@@ -16,23 +18,21 @@ p = os.path.join(dir_path, 'params.json')
 with open(p, 'r') as f:
     params = json.load(f)
 
-
 # IMAGE CHARACTERISTICS #
 # define image parameters
 n_channels = 3
 im_size = 32
 
-
 # DATA LOADING AND AUGMENTATION #
 # normalize all pixel values to be in [-1, 1] and add Gaussian noise with mean zero, variance gaussian_noise_var
 # using the same train/test data augmentation as in the paper's code
 
-transform_test = transforms.Compose(
-            [transforms.ToTensor(),
-             # normalize by the mean, stdev of the training set
-             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2488, 0.2453, 0.2633)),
-             lambda x: x + params["gaussian_noise_var"] * torch.randn_like(x)]
-)
+transform_test = transforms.Compose([
+    transforms.ToTensor(),
+    # normalize by the mean, stdev of the training set
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2488, 0.2453, 0.2633)),
+    lambda x: x + params["gaussian_noise_var"] * torch.randn_like(x)
+])
 
 testset = torchvision.datasets.CIFAR10(root='./data', train=False,
                                        download=True, transform=transform_test)
@@ -42,7 +42,6 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=params["test_batch_
 
 
 def correct_and_confidence(model, loader, device, with_energy=True):
-
     """
     return the correctness and confidences of predictions
     :param model: (obj) model
@@ -74,7 +73,6 @@ def correct_and_confidence(model, loader, device, with_energy=True):
 
 
 def calibration_buckets(zipped_corr_conf):
-
     """
     return calibration buckets
     :param zipped_corr_conf: (arr)
@@ -89,7 +87,7 @@ def calibration_buckets(zipped_corr_conf):
     corrects = zipped_corr_conf[:, 0]
     confidences = zipped_corr_conf[:, 1]
 
-    buckets = [(thresholds[i], thresholds[i+1]) for i in range(len(thresholds) - 1)]
+    buckets = [(thresholds[i], thresholds[i + 1]) for i in range(len(thresholds) - 1)]
     bucket_accs = []
     bucket_confs = []
     bucket_totals = []
@@ -117,7 +115,6 @@ def calibration_buckets(zipped_corr_conf):
 
 
 def expected_calibration_error(data_length, bucket_accs, bucket_confs, bucket_totals):
-
     """
     compute expected calibration error (ECE)
     :param data_length: (int) number of examples
@@ -127,7 +124,7 @@ def expected_calibration_error(data_length, bucket_accs, bucket_confs, bucket_to
     :return: (float) ECE
     """
 
-    normalization = (1/data_length)*np.array(bucket_totals)
+    normalization = (1 / data_length) * np.array(bucket_totals)
     ece = np.abs(np.array(bucket_accs) - np.array(bucket_confs))
 
     ece = np.dot(normalization, ece)
@@ -203,7 +200,6 @@ def main(load_dir_JEM, load_dir_sup):
 
 
 if __name__ == "__main__":
-
     # specify directory to load models
 
     save_path_JEM = params["save_path"]
@@ -213,8 +209,3 @@ if __name__ == "__main__":
     load_dir_sup = f"{save_path_sup}model_145_epochs.pt"
 
     main(load_dir_JEM=load_dir_JEM, load_dir_sup=load_dir_sup)
-
-
-
-
-

@@ -8,8 +8,8 @@ import torch.nn as nn
 import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
-from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
 
 from models import wide_resnet, resnet_official
 
@@ -44,21 +44,21 @@ n_channels = 3
 
 # normalize all pixel values to be in [-1, 1] and add Gaussian noise with mean zero, variance gaussian_noise_var
 # using the same train/test data augmentation as in the paper's code
-transform_train = transforms.Compose(
-            [transforms.Pad(4, padding_mode="reflect"),
-             transforms.RandomCrop(im_size),
-             transforms.RandomHorizontalFlip(),
-             transforms.ToTensor(),
-             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2488, 0.2453, 0.2633)),
-             lambda x: x + gaussian_noise_var * torch.randn_like(x)]
-)
+transform_train = transforms.Compose([
+    transforms.Pad(4, padding_mode="reflect"),
+    transforms.RandomCrop(im_size),
+    transforms.RandomHorizontalFlip(),
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2488, 0.2453, 0.2633)),
+    lambda x: x + gaussian_noise_var * torch.randn_like(x)
+])
 
-transform_test = transforms.Compose(
-            [transforms.ToTensor(),
-             # normalize by the mean, stdev of the training set
-             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2488, 0.2453, 0.2633)),
-             lambda x: x + gaussian_noise_var * torch.randn_like(x)]
-)
+transform_test = transforms.Compose([
+    transforms.ToTensor(),
+    # normalize by the mean, stdev of the training set
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2488, 0.2453, 0.2633)),
+    lambda x: x + gaussian_noise_var * torch.randn_like(x)
+])
 
 # obtain data
 trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
@@ -86,9 +86,10 @@ if model_type == "resnet_official":
     model = resnet_official.wrn_28_2().to(device)
 else:
     model = wide_resnet.WideResNet(depth=depth, widen_factor=widen_factor, dropout_rate=dropout_rate,
-                                    num_classes=num_classes).to(device)
+                                   num_classes=num_classes).to(device)
 
-#define checkpointing
+
+# define checkpointing
 def save_checkpoint(save_dir, epoch):
     print(f"saving model checkpoint at epoch {epoch} ...")
     if not os.path.exists(save_dir):
@@ -97,6 +98,7 @@ def save_checkpoint(save_dir, epoch):
     torch.save(model.state_dict(), f"{save_path_prefix}_{epoch}_epochs.pt")
     model.to(device)
     print("checkpoint saved!")
+
 
 # define the optimizer and criterion
 criterion = nn.CrossEntropyLoss()
@@ -139,7 +141,7 @@ for epoch in range(num_epochs):
         if i % 5 == 0:
             tqdm.write(f"loss: {loss.item()}")
             writer.add_scalar("Loss/train", loss, global_step=train_step)
-            train_step +=1
+            train_step += 1
 
     if epoch % save_every == 0:
         save_checkpoint(save_path_prefix, epoch)
@@ -166,7 +168,7 @@ for epoch in range(num_epochs):
             writer.add_scalar("Loss/val", loss, global_step=val_step)
             writer.add_scalar("Loss/acc", acc, global_step=val_step)
 
-            val_step+=1
+            val_step += 1
 
             # save and log a checkpoint
             torch.save(model, "model.pth")

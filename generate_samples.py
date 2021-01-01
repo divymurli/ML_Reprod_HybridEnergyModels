@@ -1,8 +1,9 @@
 import json
 import os
-import torch
 
+import torch
 import torchvision
+
 from models import wide_resnet_energy_output
 from utils import create_random_buffer, run_sgld, load_model_and_buffer
 
@@ -13,9 +14,13 @@ with open(p, 'r') as f:
 
 
 def main(save_dir, model_load_dir, sgld_step_size, sgld_noise, sgld_steps=50):
-
     sqrt = lambda x: int(torch.sqrt(torch.Tensor([x])))
-    plot = lambda path, x: torchvision.utils.save_image(torch.clamp(x, -1, 1), path, normalize=True, nrow=sqrt(x.size(0)))
+    plot = lambda path, x: torchvision.utils.save_image(
+        torch.clamp(x, -1, 1),
+        path,
+        normalize=True,
+        nrow=sqrt(x.size(0))
+    )
 
     # create the save directory
     if not os.path.exists(save_dir):
@@ -42,7 +47,6 @@ def main(save_dir, model_load_dir, sgld_step_size, sgld_noise, sgld_steps=50):
 
 
 if __name__ == "__main__":
-
     # specify generated sample save path and model load path
     save_path = params["save_path"]
     save_dir = f"{save_path}fresh_sgld_samples/"
@@ -53,7 +57,3 @@ if __name__ == "__main__":
          sgld_step_size=params["sgld_step_size"],
          sgld_noise=params["sgld_noise"],
          sgld_steps=20)
-
-
-
-
