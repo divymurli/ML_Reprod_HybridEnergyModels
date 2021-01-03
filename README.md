@@ -20,5 +20,5 @@ Local code was run on Mac OS X Mojave, version 10.14.6
 
 ## Analysis
 
-* Once the model is trained, run `python calibration.py` to generate the calibration plots for both the supervised as well as JEM training methods. An example calibration plot is shown in `artefacts`.
-* To generate fresh SGLD samples (from a randomly initialized buffer), run `python generate_samples.py`. By default, it will run for 20 SGLD steps but this can be changed. Example SGLD evolutions for 1, 5, 10, 20 and 50 steps are given in `artefacts/fresh_sgld_samples`.
+* Once the model is trained, run `python calibration.py` to generate the calibration plots for both the supervised as well as JEM training methods. An example calibration plot is shown in `example_artefacts`.
+* To generate fresh SGLD samples (from a randomly initialized buffer), run `python generate_samples.py`. By default, it will run for 20 SGLD steps but this can be changed. Example SGLD evolutions for 1, 5, 10, 20 and 50 steps are given in `example_artefacts/fresh_sgld_samples`.
