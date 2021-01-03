@@ -10,5 +10,6 @@ runs
 replicate.yaml
 scratch.py
 other_ckpts/
+artefacts/
 artefacts_supervised/
 images/
